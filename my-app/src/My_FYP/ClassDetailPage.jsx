@@ -30,6 +30,12 @@ export default function ClassDetailPage() {
     const [selectedAssignment, setSelectedAssignment] = useState(null);
     const [feedbackData, setFeedbackData] = useState(null);
     const [loadingFeedback, setLoadingFeedback] = useState(false);
+    const [manualScore, setManualScore] = useState('');
+    const [manualComment, setManualComment] = useState('');
+    const [currentEvaluationId, setCurrentEvaluationId] = useState(null);
+    const [reviewStatus, setReviewStatus] = useState(null);
+    const [savingReview, setSavingReview] = useState(false);
+    const [approvingReview, setApprovingReview] = useState(false);
 
     // Pending enrollments states  
     const [pendingEnrollments, setPendingEnrollments] = useState([]);
@@ -196,13 +202,39 @@ export default function ClassDetailPage() {
             if (feedbackResponse.ok) {
                 feedbackData = await feedbackResponse.json();
                 console.log('📊 Feedback received:', feedbackData);
+                if (user?.role === 'lecturer') {
+                    setManualScore(
+                        feedbackData.manual_score === null || feedbackData.manual_score === undefined
+                            ? ''
+                            : String(feedbackData.manual_score)
+                    );
+                    setManualComment(feedbackData.lecturer_comment || '');
+                    setCurrentEvaluationId(feedbackData.evaluation_id || null);
+                    setReviewStatus(feedbackData.review_status || feedbackData.feedback_status || null);
+                } else {
+                    setManualScore('');
+                    setManualComment('');
+                    setCurrentEvaluationId(null);
+                    setReviewStatus(feedbackData.review_status || feedbackData.feedback_status || null);
+                }
             } else {
                 console.error('Failed to fetch feedback:', feedbackResponse.status);
-                const errorText = await feedbackResponse.text();
-                console.error('Error details:', errorText);
+                let errorMessage = `Failed to load feedback: ${feedbackResponse.status} ${feedbackResponse.statusText}`;
+                try {
+                    const errorJson = await feedbackResponse.json();
+                    errorMessage = errorJson.detail || errorMessage;
+                } catch (err) {
+                    const errorText = await feedbackResponse.text();
+                    console.error('Error details:', errorText);
+                }
+
+                setManualScore('');
+                setManualComment('');
+                setCurrentEvaluationId(null);
+                setReviewStatus('pending');
 
                 feedbackData = {
-                    error: `Failed to load feedback: ${feedbackResponse.status} ${feedbackResponse.statusText}`
+                    error: errorMessage
                 };
             }
 
@@ -230,9 +262,87 @@ export default function ClassDetailPage() {
         }
     };
 
+    const handleSaveManualReview = async () => {
+        if (!selectedAssignment || user?.role !== 'lecturer') return;
+
+        setSavingReview(true);
+        try {
+            const token = localStorage.getItem('access_token');
+            const scoreValue = manualScore === '' ? null : Number(manualScore);
+            if (scoreValue !== null && (Number.isNaN(scoreValue) || scoreValue < 0 || scoreValue > 100)) {
+                throw new Error('Score must be between 0 and 100');
+            }
+
+            const payload = {
+                score: scoreValue,
+                comment: manualComment && manualComment.trim() ? manualComment : null
+            };
+
+            const response = await fetch(`${API_BASE}/assignment/${selectedAssignment.script_id}/review`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Failed to save review');
+            }
+
+            alert(data.message || 'Review saved');
+            setCurrentEvaluationId(data.evaluation_id || null);
+            setReviewStatus(data.review_status || 'pending');
+            fetchAssignmentFeedback(selectedAssignment.script_id);
+        } catch (error) {
+            alert(error.message || 'Failed to save review');
+        } finally {
+            setSavingReview(false);
+        }
+    };
+
+    const handleApproveReview = async () => {
+        if (!selectedAssignment || user?.role !== 'lecturer') return;
+        if (!currentEvaluationId) {
+            alert('Please save your review before approving.');
+            return;
+        }
+
+        setApprovingReview(true);
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_BASE}/evaluation/${currentEvaluationId}/approve`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Failed to approve evaluation');
+            }
+
+            alert(data.msg || 'Evaluation approved');
+            setReviewStatus('approved');
+            fetchAssignmentFeedback(selectedAssignment.script_id);
+        } catch (error) {
+            alert(error.message || 'Failed to approve evaluation');
+        } finally {
+            setApprovingReview(false);
+        }
+    };
+
     const handleAssignmentClick = (assignment) => {
         setSelectedAssignment(assignment);
         setShowFeedbackModal(true);
+        setFeedbackData(null);
+        setManualScore('');
+        setManualComment('');
+        setCurrentEvaluationId(null);
+        setReviewStatus(null);
         fetchAssignmentFeedback(assignment.script_id);
     };
 
@@ -1293,6 +1403,100 @@ export default function ClassDetailPage() {
                                                             </li>
                                                         ))}
                                                     </ul>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {user?.role === 'student' && feedbackData.lecturer_comment && (
+                                            <div style={styles.feedbackSection}>
+                                                <h3 style={styles.feedbackTitle}>👨‍🏫 Lecturer Comment</h3>
+                                                <div style={{
+                                                    background: '#f5f5f5',
+                                                    borderRadius: '8px',
+                                                    padding: '15px',
+                                                    border: '1px solid #e5e7eb',
+                                                    lineHeight: '1.6'
+                                                }}>
+                                                    {feedbackData.lecturer_comment}
+                                                </div>
+                                                {feedbackData.manual_last_updated && (
+                                                    <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#6b7280' }}>
+                                                        Last updated: {new Date(feedbackData.manual_last_updated).toLocaleString()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {user?.role === 'lecturer' && (
+                                            <div style={styles.feedbackSection}>
+                                                <h3 style={styles.feedbackTitle}>👨‍🏫 Lecturer Review</h3>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    <label style={{ fontWeight: '600', color: '#1f2937' }}>Manual Score (0-100)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        value={manualScore === null ? '' : manualScore}
+                                                        onChange={(e) => setManualScore(e.target.value)}
+                                                        style={{
+                                                            padding: '10px',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid #d1d5db',
+                                                            fontSize: '1rem'
+                                                        }}
+                                                    />
+
+                                                    <label style={{ fontWeight: '600', color: '#1f2937' }}>Comment for Student</label>
+                                                    <textarea
+                                                        rows={4}
+                                                        value={manualComment}
+                                                        onChange={(e) => setManualComment(e.target.value)}
+                                                        placeholder="Share personalized feedback for the student"
+                                                        style={{
+                                                            padding: '10px',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid #d1d5db',
+                                                            fontSize: '1rem',
+                                                            resize: 'vertical'
+                                                        }}
+                                                    />
+
+                                                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                                        <button
+                                                            onClick={handleSaveManualReview}
+                                                            disabled={savingReview}
+                                                            style={{
+                                                                background: '#3b82f6',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                padding: '10px 18px',
+                                                                borderRadius: '8px',
+                                                                fontWeight: '600',
+                                                                cursor: savingReview ? 'not-allowed' : 'pointer'
+                                                            }}
+                                                        >
+                                                            {savingReview ? 'Saving...' : '💾 Save Review'}
+                                                        </button>
+                                                        <button
+                                                            onClick={handleApproveReview}
+                                                            disabled={approvingReview || !currentEvaluationId}
+                                                            style={{
+                                                                background: '#10b981',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                padding: '10px 18px',
+                                                                borderRadius: '8px',
+                                                                fontWeight: '600',
+                                                                cursor: approvingReview || !currentEvaluationId ? 'not-allowed' : 'pointer'
+                                                            }}
+                                                        >
+                                                            {approvingReview ? 'Approving...' : '✅ Approve for Student'}
+                                                        </button>
+                                                    </div>
+
+                                                    <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                                                        Current status: {(reviewStatus || 'pending').toString().toUpperCase()}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
