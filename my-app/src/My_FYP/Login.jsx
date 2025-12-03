@@ -148,9 +148,20 @@ export default function Login() {
 
       // Show success message briefly before redirect
       setError(''); // Clear any previous errors
-      alert(`✅ Welcome back, ${body.user?.name || 'User'}!`);
 
-      navigate('/userpage');
+      // Redirect based on user role
+      const userRole = body.user?.role || 'student';
+
+      if (userRole === 'admin') {
+        alert(`✅ Welcome back, Admin ${body.user?.name || 'User'}!`);
+        navigate('/admin/dashboard');
+      } else if (userRole === 'lecturer') {
+        alert(`✅ Welcome back, ${body.user?.name || 'User'}!`);
+        navigate('/userpage'); // or '/lecturer/dashboard' if you have one
+      } else {
+        alert(`✅ Welcome back, ${body.user?.name || 'User'}!`);
+        navigate('/userpage');
+      }
 
     } catch (err) {
       console.error('❌ Login error:', err);

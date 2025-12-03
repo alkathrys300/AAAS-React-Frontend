@@ -926,7 +926,12 @@ export default function ClassDetailPage() {
                     <div style={styles.navLink} onClick={() => navigate('/classes')}>
                         📚 Classes
                     </div>
-                    <div style={styles.navLink}>📊 Analytics</div>
+                    <div style={styles.navLink} onClick={() => navigate('/analytics')}>
+                        📊 Analytics
+                    </div>
+                    <div style={styles.navLink} onClick={() => navigate('/contact')}>
+                        📞 Contact
+                    </div>
                 </nav>
                 <div style={styles.userMenu} onClick={() => {
                     localStorage.removeItem('access_token');

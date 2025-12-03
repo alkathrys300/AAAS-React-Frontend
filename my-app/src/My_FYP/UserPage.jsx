@@ -96,7 +96,12 @@ export default function UserPage() {
             transition: 'all 0.3s ease',
             padding: '8px 16px',
             borderRadius: '8px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            position: 'relative'
+        },
+        navLinkHover: {
+            background: 'rgba(255,255,255,0.2)',
+            transform: 'translateY(-2px)'
         },
         userMenu: {
             display: 'flex',
@@ -246,12 +251,61 @@ export default function UserPage() {
                     AAAS
                 </div>
                 <nav style={styles.nav}>
-                    <div style={styles.navLink}>🏠 Home</div>
-                    <div style={styles.navLink} onClick={() => navigate('/classes')}>
+                    <div
+                        style={styles.navLink}
+                        onMouseEnter={(e) => {
+                            e.target.style.background = 'rgba(255,255,255,0.2)';
+                            e.target.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.background = 'transparent';
+                            e.target.style.transform = 'translateY(0)';
+                        }}
+                    >
+                        🏠 Home
+                    </div>
+                    <div
+                        style={styles.navLink}
+                        onClick={() => navigate('/classes')}
+                        onMouseEnter={(e) => {
+                            e.target.style.background = 'rgba(255,255,255,0.2)';
+                            e.target.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.background = 'transparent';
+                            e.target.style.transform = 'translateY(0)';
+                        }}
+                    >
                         📚 Classes
                     </div>
-                    <div style={styles.navLink}>📊 Analytics</div>
-                    <div style={styles.navLink}>📞 Contact</div>
+                    <div
+                        style={styles.navLink}
+                        onClick={() => navigate('/analytics')}
+                        onMouseEnter={(e) => {
+                            e.target.style.background = 'rgba(255,255,255,0.2)';
+                            e.target.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.background = 'transparent';
+                            e.target.style.transform = 'translateY(0)';
+                        }}
+                    >
+                        📊 Analytics
+                    </div>
+                    <div
+                        style={styles.navLink}
+                        onClick={() => navigate('/contact')}
+                        onMouseEnter={(e) => {
+                            e.target.style.background = 'rgba(255,255,255,0.2)';
+                            e.target.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.background = 'transparent';
+                            e.target.style.transform = 'translateY(0)';
+                        }}
+                    >
+                        📞 Contact
+                    </div>
                 </nav>
                 <div style={styles.userMenu} onClick={handleLogout}>
                     <span>👤</span>
@@ -277,8 +331,8 @@ export default function UserPage() {
                             {user.role === 'lecturer' ? '👨‍🏫' : '📚'}
                         </div>
                         <h3 style={styles.welcomeText}>
-                            {user.role === 'lecturer' 
-                                ? 'Manage Your Classes' 
+                            {user.role === 'lecturer'
+                                ? 'Manage Your Classes'
                                 : 'Access Your Classes'
                             }
                         </h3>
@@ -288,9 +342,19 @@ export default function UserPage() {
                                 : 'Join classes and submit your assignments for evaluation'
                             }
                         </p>
-                        <button 
+                        <button
                             style={styles.classesButton}
                             onClick={() => navigate('/classes')}
+                            onMouseEnter={(e) => {
+                                e.target.style.background = '#2563eb';
+                                e.target.style.transform = 'translateY(-2px)';
+                                e.target.style.boxShadow = '0 10px 20px rgba(59,130,246,0.3)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.background = '#3b82f6';
+                                e.target.style.transform = 'translateY(0)';
+                                e.target.style.boxShadow = 'none';
+                            }}
                         >
                             📚 Go to Classes
                         </button>

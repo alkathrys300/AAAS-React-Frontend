@@ -219,7 +219,15 @@ function Register() {
 
       // ✅ Success handling
       const successMessage = data.message || 'Registration successful!';
-      alert(`✅ ${successMessage}\nWelcome ${formData.name}!`);
+
+      // Show different message based on role
+      if (formData.role === 'admin') {
+        alert(`✅ ${successMessage}\n\nYou can login immediately as an admin!\n\nWelcome ${formData.name}!`);
+      } else if (formData.role === 'student' || formData.role === 'lecturer') {
+        alert(`✅ ${successMessage}\n\nYour account is pending admin approval. You will be able to login once an admin approves your registration.\n\nWelcome ${formData.name}!`);
+      } else {
+        alert(`✅ ${successMessage}\nWelcome ${formData.name}!`);
+      }
 
       // Navigate to login page
       navigate('/login');
@@ -375,3 +383,10 @@ function Register() {
 }
 
 export default Register;
+
+
+
+
+
+
+

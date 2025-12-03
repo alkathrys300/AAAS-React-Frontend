@@ -569,7 +569,13 @@ export default function ClassesPage() {
                         )}
 
                         <div style={{ marginTop: '15px' }}>
-                            <span style={styles.statusBadge}>Active</span>
+                            {classItem.enrollment_status === 'pending' ? (
+                                <span style={{ ...styles.statusBadge, background: '#fef3c7', color: '#92400e' }}>
+                                    ⏳ Pending Approval
+                                </span>
+                            ) : (
+                                <span style={styles.statusBadge}>Active</span>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -592,7 +598,12 @@ export default function ClassesPage() {
                     <div style={{ ...styles.navLink, ...styles.activeTab }}>
                         📚 Classes
                     </div>
-                    <div style={styles.navLink}>📊 Analytics</div>
+                    <div style={styles.navLink} onClick={() => navigate('/analytics')}>
+                        📊 Analytics
+                    </div>
+                    <div style={styles.navLink} onClick={() => navigate('/contact')}>
+                        📞 Contact
+                    </div>
                 </nav>
                 <div style={styles.userMenu} onClick={handleLogout}>
                     <span>👤</span>
