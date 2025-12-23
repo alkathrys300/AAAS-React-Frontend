@@ -4,238 +4,606 @@ import { useNavigate } from 'react-router-dom';
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000';
 
 export default function Contact() {
-    const navigate = useNavigate();
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
-    const [lecturers, setLecturers] = useState([]);
-    const [loadingLecturers, setLoadingLecturers] = useState(true);
-    const [formData, setFormData] = useState({
-        name: user?.name || '',
-        email: user?.email || '',
-        subject: '',
-        message: ''
-    });
-    const [sending, setSending] = useState(false);
-    const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [lecturers, setLecturers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        const userData = localStorage.getItem('user');
-        const token = localStorage.getItem('access_token');
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    const token = localStorage.getItem('access_token');
 
-        if (!userData || !token) {
-            navigate('/login');
-            return;
-        }
+    if (!userData || !token) {
+      navigate('/login');
+      return;
+    }
 
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
+    const parsedUser = JSON.parse(userData);
+    setUser(parsedUser);
 
-        // Fetch lecturers if student
-        if (parsedUser.role === 'student') {
-            fetchLecturers(token);
-        } else {
-            setLoadingLecturers(false);
-        }
-    }, [navigate]);
+    if (parsedUser.role === 'student') {
+      fetchLecturers(token, parsedUser.user_id);
+    }
+  }, [navigate]);
 
-    const fetchLecturers = async (token) => {
-        try {
-            // Get enrolled classes to find lecturers
-            const response = await fetch(`${API_BASE}/classes/enrolled`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+  const fetchLecturers = async (token, studentId) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/student/${studentId}/lecturers`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLecturers(data.lecturers || []);
+      }
+    } catch (error) {
+      console.error('Error fetching lecturers:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            if (response.ok) {
-                const data = await response.json();
-                const classes = data.classes || [];
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user');
+    window.location.href = 'http://localhost:3001/';
+  };
 
-                // Extract unique lecturers
-                const uniqueLecturers = [];
-                const lecturerEmails = new Set();
+  if (!user) return <div style={styles.loadingContainer}>Loading...</div>;
 
-                classes.forEach(cls => {
-                    if (cls.lecturer_name && !lecturerEmails.has(cls.lecturer_name)) {
-                        lecturerEmails.add(cls.lecturer_name);
-                        uniqueLecturers.push({
-                            name: cls.lecturer_name,
-                            class: cls.class_name
-                        });
-                    }
-                });
+  return (
+    <div style={styles.page}>
+      {/* Navigation Bar */}
+      <nav style={styles.navbar}>
+        <div style={styles.navContainer}>
+          <div style={styles.logo}>
+            <span style={styles.logoIcon}>🎓</span>
+            <span style={styles.logoText}>AAAS</span>
+          </div>
+          
+          <div style={styles.navLinks}>
+            <button
+              onClick={() => navigate('/userpage')}
+              style={styles.navLink}
+              onMouseEnter={(e) => e.target.style.background = 'rgba(14,165,233,0.1)'}
+              onMouseLeave={(e) => e.target.style.background = 'transparent'}
+            >
+              <span style={styles.navIcon}>🏠</span>
+              <span>Home</span>
+            </button>
+            <button
+              onClick={() => navigate('/classes')}
+              style={styles.navLink}
+              onMouseEnter={(e) => e.target.style.background = 'rgba(14,165,233,0.1)'}
+              onMouseLeave={(e) => e.target.style.background = 'transparent'}
+            >
+              <span style={styles.navIcon}>📚</span>
+              <span>Classes</span>
+            </button>
+            <button
+              onClick={() => navigate('/analytics')}
+              style={styles.navLink}
+              onMouseEnter={(e) => e.target.style.background = 'rgba(14,165,233,0.1)'}
+              onMouseLeave={(e) => e.target.style.background = 'transparent'}
+            >
+              <span style={styles.navIcon}>📊</span>
+              <span>Analytics</span>
+            </button>
+            <button
+              onClick={() => navigate('/contact')}
+              style={styles.navLinkActive}
+            >
+              <span style={styles.navIcon}>📧</span>
+              <span>Contact</span>
+            </button>
+          </div>
 
-                setLecturers(uniqueLecturers);
-            }
-        } catch (error) {
-            console.error('Error fetching lecturers:', error);
-        } finally {
-            setLoadingLecturers(false);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setSending(true);
-        setTimeout(() => {
-            setSending(false);
-            setSuccess(true);
-            setFormData({ ...formData, subject: '', message: '' });
-            setTimeout(() => setSuccess(false), 5000);
-        }, 1500);
-    };
-
-    const handleLogout = () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-        navigate('/login');
-    };
-
-    const styles = {
-        container: { minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', fontFamily: "'Inter', sans-serif" },
-        header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 40px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.2)' },
-        logo: { display: 'flex', alignItems: 'center', gap: '12px', color: 'white', fontSize: '1.5rem', fontWeight: 'bold', cursor: 'pointer' },
-        nav: { display: 'flex', gap: '10px', alignItems: 'center' },
-        navLink: { color: 'white', fontWeight: '500', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.1)', transition: 'all 0.3s' },
-        navLinkActive: { background: 'rgba(255,255,255,0.25)', fontWeight: '600' },
-        userMenu: { display: 'flex', alignItems: 'center', gap: '12px', color: 'white', background: 'rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer' }
-    };
-
-    return (
-        <div style={styles.container}>
-            <header style={styles.header}>
-                <div style={styles.logo} onClick={() => navigate('/userpage')}> AAAS</div>
-                <nav style={styles.nav}>
-                    <div style={styles.navLink} onClick={() => navigate('/userpage')}> Home</div>
-                    <div style={styles.navLink} onClick={() => navigate('/classes')}> Classes</div>
-                    <div style={styles.navLink} onClick={() => navigate('/analytics')}> Analytics</div>
-                    <div style={{ ...styles.navLink, ...styles.navLinkActive }}> Contact</div>
-                </nav>
-                <div style={styles.userMenu} onClick={handleLogout}>
-                    <span></span><span>{user?.name}</span><span style={{ fontSize: '0.8rem' }}>Logout</span>
-                </div>
-            </header>
-            <main style={{ padding: '80px 40px', maxWidth: '1400px', margin: '0 auto' }}>
-                <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                    <h1 style={{ fontSize: '3.5rem', fontWeight: '800', color: 'white', marginBottom: '20px' }}>📞 Get in Touch</h1>
-                    <p style={{ fontSize: '1.3rem', color: 'rgba(255,255,255,0.9)', maxWidth: '600px', margin: '0 auto' }}>Have a question or need assistance? We are here to help you succeed!</p>
-                </div>
-
-                {/* Faculty Contact Information */}
-                <div style={{ marginBottom: '50px' }}>
-                    <h2 style={{ fontSize: '2rem', fontWeight: '700', color: 'white', textAlign: 'center', marginBottom: '30px' }}>🏛️ Faculty of Computing</h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '30px' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📞</div>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>GENERAL LINE</h3>
-                            <p style={{ fontSize: '1.3rem', color: '#3b82f6', fontWeight: '600', marginBottom: '5px' }}>09 - 431 5011</p>
-                        </div>
-
-                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>🎓</div>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>ACADEMIC LINE</h3>
-                            <p style={{ fontSize: '1.3rem', color: '#3b82f6', fontWeight: '600', marginBottom: '5px' }}>09 - 431 5071</p>
-                        </div>
-
-                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📧</div>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>EMAIL ADDRESS</h3>
-                            <a href="mailto:fk@umpsa.edu.my" style={{ fontSize: '1.1rem', color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>fk@umpsa.edu.my</a>
-                        </div>
-
-                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>🕒</div>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>OFFICE HOUR</h3>
-                            <p style={{ fontSize: '1rem', color: '#4b5563', fontWeight: '600', marginBottom: '5px' }}>Monday - Friday</p>
-                            <p style={{ fontSize: '1.1rem', color: '#3b82f6', fontWeight: '600' }}>8:00 AM - 17:00 PM</p>
-                        </div>
-
-                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s', gridColumn: 'span 2' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📍</div>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>OFFICE ADDRESS</h3>
-                            <p style={{ fontSize: '1rem', color: '#4b5563', lineHeight: '1.6' }}>
-                                Faculty of Computing,<br />
-                                Universiti Malaysia Pahang Al-Sultan Abdullah,<br />
-                                26600 Pekan, Pahang
-                            </p>
-                            <a href="https://fk.umpsa.edu.my/" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '12px', padding: '10px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: 'white', textDecoration: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600' }}>
-                                🌐 Visit Website
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                {/* My Lecturers Section - Only for Students */}
-                {user?.role === 'student' && (
-                    <div style={{ marginBottom: '50px' }}>
-                        <h2 style={{ fontSize: '2rem', fontWeight: '700', color: 'white', textAlign: 'center', marginBottom: '30px' }}>👨‍🏫 My Lecturers</h2>
-                        {loadingLecturers ? (
-                            <div style={{ textAlign: 'center', color: 'white', padding: '40px' }}>
-                                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⏳</div>
-                                <p>Loading lecturer information...</p>
-                            </div>
-                        ) : lecturers.length > 0 ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-                                {lecturers.map((lecturer, index) => (
-                                    <div key={index} style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '1.8rem' }}>👨‍🏫</div>
-                                        <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#1f2937', marginBottom: '8px', textAlign: 'center' }}>{lecturer.name}</h3>
-                                        <p style={{ fontSize: '0.95rem', color: '#6b7280', textAlign: 'center', marginBottom: '15px' }}>{lecturer.class}</p>
-                                        <div style={{ textAlign: 'center' }}>
-                                            <a href={`mailto:${lecturer.name.toLowerCase().replace(' ', '.')}@umpsa.edu.my`} style={{ display: 'inline-block', padding: '8px 16px', background: '#e0f2fe', color: '#0369a1', textDecoration: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: '600' }}>
-                                                📧 Email Lecturer
-                                            </a>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '40px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-                                <p style={{ fontSize: '1.1rem', color: '#6b7280' }}>You are not enrolled in any classes yet. Enroll in a class to see your lecturers.</p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Contact Form */}
-                <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '50px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxWidth: '800px', margin: '0 auto' }}>
-                    {success ? (
-                        <div style={{ textAlign: 'center', padding: '60px 40px' }}>
-                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px', fontWeight: 'bold', boxShadow: '0 10px 30px rgba(16,185,129,0.4)' }}></div>
-                            <h3 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', marginBottom: '10px' }}>Message Sent Successfully!</h3>
-                            <p style={{ fontSize: '1.1rem', color: '#6b7280', marginBottom: '30px' }}>Thank you for reaching out. We will get back to you as soon as possible.</p>
-                            <button style={{ padding: '15px 35px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer' }} onClick={() => setSuccess(false)}>Send Another Message</button>
-                        </div>
-                    ) : (
-                        <>
-                            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                                <h2 style={{ fontSize: '2.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '10px' }}>Send us a Message</h2>
-                                <p style={{ fontSize: '1.05rem', color: '#6b7280' }}>Fill out the form below and our team will respond promptly</p>
-                            </div>
-                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: '#374151', marginBottom: '10px', textTransform: 'uppercase' }}>Name</label>
-                                        <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '15px 20px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '1rem', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} placeholder="Your full name" required />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: '#374151', marginBottom: '10px', textTransform: 'uppercase' }}>Email</label>
-                                        <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} style={{ width: '100%', padding: '15px 20px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '1rem', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} placeholder="you@example.com" required />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: '#374151', marginBottom: '10px', textTransform: 'uppercase' }}>Subject</label>
-                                    <input type="text" value={formData.subject} onChange={e => setFormData({ ...formData, subject: e.target.value })} style={{ width: '100%', padding: '15px 20px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '1rem', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} placeholder="How can we help?" required />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: '#374151', marginBottom: '10px', textTransform: 'uppercase' }}>Message</label>
-                                    <textarea value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} style={{ width: '100%', padding: '15px 20px', border: '2px solid #e5e7eb', borderRadius: '12px', fontSize: '1rem', minHeight: '150px', resize: 'vertical', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#667eea'} onBlur={e => e.target.style.borderColor = '#e5e7eb'} placeholder="Please provide details..." required />
-                                </div>
-                                <button type="submit" disabled={sending} style={{ padding: '18px 40px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: '700', cursor: 'pointer', boxShadow: '0 10px 30px rgba(102,126,234,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', width: '100%' }} onMouseEnter={e => !sending && (e.target.style.transform = 'scale(1.02)')} onMouseLeave={e => e.target.style.transform = 'scale(1)'}>
-                                    {sending ? (<><span></span><span>Sending...</span></>) : (<><span>Send Message</span><span></span></>)}
-                                </button>
-                            </form>
-                        </>
-                    )}
-                </div>
-            </main>
+          <div style={styles.navRight}>
+            <div style={styles.userInfo}>
+              <div style={styles.userName}>{user.name}</div>
+              <div style={styles.userRole}>
+                {user.role === 'student' ? '👨‍🎓' : '👨‍🏫'}
+              </div>
+            </div>
+            <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
+          </div>
         </div>
-    );
+      </nav>
+
+      {/* Main Content */}
+      <div style={styles.mainContent}>
+        {/* Page Header */}
+        <div style={styles.pageHeader}>
+          <h1 style={styles.pageTitle}>📧 Contact & Support</h1>
+          <p style={styles.pageSubtitle}>Get in touch with faculty and support</p>
+        </div>
+
+        {/* Faculty Contact Cards */}
+        <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>🏛️ Faculty of Computing - UMPSA</h2>
+          <div style={styles.contactGrid}>
+            <div style={styles.contactCard}>
+              <div style={styles.contactIcon}>📞</div>
+              <h3 style={styles.contactCardTitle}>General Inquiries</h3>
+              <p style={styles.contactDetail}>09-431 5011</p>
+            </div>
+
+            <div style={styles.contactCard}>
+              <div style={styles.contactIcon}>🎓</div>
+              <h3 style={styles.contactCardTitle}>Academic Office</h3>
+              <p style={styles.contactDetail}>09-431 5071</p>
+            </div>
+
+            <div style={styles.contactCard}>
+              <div style={styles.contactIcon}>✉️</div>
+              <h3 style={styles.contactCardTitle}>Email</h3>
+              <a 
+                href="mailto:fk@umpsa.edu.my" 
+                style={styles.contactLink}
+                onMouseEnter={(e) => e.target.style.color = '#0284c7'}
+                onMouseLeave={(e) => e.target.style.color = '#0ea5e9'}
+              >
+                fk@umpsa.edu.my
+              </a>
+            </div>
+
+            <div style={styles.contactCard}>
+              <div style={styles.contactIcon}>🌐</div>
+              <h3 style={styles.contactCardTitle}>Website</h3>
+              <a 
+                href="https://fk.umpsa.edu.my/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={styles.contactLink}
+                onMouseEnter={(e) => e.target.style.color = '#0284c7'}
+                onMouseLeave={(e) => e.target.style.color = '#0ea5e9'}
+              >
+                fk.umpsa.edu.my
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* Office Information */}
+        <div style={styles.infoSection}>
+          <div style={styles.infoCard}>
+            <h3 style={styles.infoTitle}>⏰ Office Hours</h3>
+            <p style={styles.infoText}>Monday - Friday: 8:00 AM - 5:00 PM</p>
+            <p style={styles.infoText}>Saturday - Sunday: Closed</p>
+          </div>
+
+          <div style={styles.infoCard}>
+            <h3 style={styles.infoTitle}>📍 Address</h3>
+            <p style={styles.infoText}>
+              Faculty of Computing<br/>
+              Universiti Malaysia Pahang Al-Sultan Abdullah<br/>
+              Lebuhraya Tun Razak, 26300 Gambang<br/>
+              Kuantan, Pahang, Malaysia
+            </p>
+          </div>
+        </div>
+
+        {/* My Lecturers Section (for students) */}
+        {user.role === 'student' && (
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>👨‍🏫 My Lecturers</h2>
+            {loading ? (
+              <div style={styles.loadingState}>
+                <div style={styles.loadingSpinner}>⏳</div>
+                <p>Loading lecturers...</p>
+              </div>
+            ) : lecturers.length > 0 ? (
+              <div style={styles.lecturersGrid}>
+                {lecturers.map((lecturer) => (
+                  <div key={lecturer.user_id} style={styles.lecturerCard}>
+                    <div style={styles.lecturerAvatar}>
+                      {lecturer.name ? lecturer.name.charAt(0).toUpperCase() : '👤'}
+                    </div>
+                    <h3 style={styles.lecturerName}>{lecturer.name}</h3>
+                    <p style={styles.lecturerClass}>{lecturer.class_name}</p>
+                    <a 
+                      href={`mailto:${lecturer.email}`}
+                      style={styles.lecturerEmail}
+                      onMouseEnter={(e) => e.target.style.color = '#0284c7'}
+                      onMouseLeave={(e) => e.target.style.color = '#0ea5e9'}
+                    >
+                      {lecturer.email}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={styles.emptyState}>
+                <div style={styles.emptyIcon}>👨‍🏫</div>
+                <h3 style={styles.emptyTitle}>No lecturers yet</h3>
+                <p style={styles.emptyText}>Enroll in classes to see your lecturers</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Support Section */}
+        <div style={styles.supportSection}>
+          <h2 style={styles.supportTitle}>💬 Need Help?</h2>
+          <p style={styles.supportText}>
+            If you have any questions about AAAS or need technical support, 
+            please contact your lecturer or the faculty office.
+          </p>
+          <div style={styles.supportButtons}>
+            <button
+              onClick={() => window.location.href = 'mailto:fk@umpsa.edu.my'}
+              style={styles.supportButton}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 12px 28px rgba(14,165,233,0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 8px 20px rgba(14,165,233,0.3)';
+              }}
+            >
+              <span>📧 Email Faculty</span>
+            </button>
+            <button
+              onClick={() => window.open('https://fk.umpsa.edu.my/', '_blank')}
+              style={styles.websiteButton}
+              onMouseEnter={(e) => {
+                e.target.style.background = '#f0f9ff';
+                e.target.style.borderColor = '#0284c7';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'white';
+                e.target.style.borderColor = '#0ea5e9';
+              }}
+            >
+              <span>🌐 Visit Website</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
+
+const styles = {
+  page: {
+    minHeight: '100vh',
+    background: '#f8fafc',
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  },
+
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    fontSize: '1.2rem',
+    color: '#0ea5e9',
+  },
+
+  // Navbar
+  navbar: {
+    background: 'white',
+    borderBottom: '1px solid #e5e7eb',
+    padding: '16px 0',
+    position: 'sticky',
+    top: 0,
+    zIndex: 1000,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+  },
+  navContainer: {
+    maxWidth: '1400px',
+    margin: '0 auto',
+    padding: '0 40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  logo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    fontSize: '1.5rem',
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  logoIcon: { fontSize: '2rem' },
+  logoText: { letterSpacing: '1px' },
+  navLinks: {
+    display: 'flex',
+    gap: '8px',
+  },
+  navLink: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 20px',
+    background: 'transparent',
+    border: 'none',
+    borderRadius: '10px',
+    color: '#64748b',
+    fontWeight: '600',
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  navLinkActive: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 20px',
+    background: 'linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)',
+    border: 'none',
+    borderRadius: '10px',
+    color: '#0ea5e9',
+    fontWeight: '700',
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+  },
+  navIcon: { fontSize: '1.2rem' },
+  navRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+  },
+  userInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  userName: {
+    fontSize: '0.95rem',
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  userRole: { fontSize: '1.2rem' },
+  logoutBtn: {
+    padding: '10px 20px',
+    background: 'white',
+    border: '2px solid #e5e7eb',
+    borderRadius: '10px',
+    color: '#dc2626',
+    fontWeight: '600',
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+
+  // Main Content
+  mainContent: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '40px',
+  },
+
+  // Page Header
+  pageHeader: {
+    marginBottom: '48px',
+    textAlign: 'center',
+  },
+  pageTitle: {
+    fontSize: '3rem',
+    fontWeight: '900',
+    color: '#0f172a',
+    margin: '0 0 12px 0',
+  },
+  pageSubtitle: {
+    fontSize: '1.2rem',
+    color: '#64748b',
+    margin: 0,
+  },
+
+  // Section
+  section: {
+    marginBottom: '48px',
+  },
+  sectionTitle: {
+    fontSize: '2rem',
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: '24px',
+    margin: '0 0 24px 0',
+  },
+
+  // Contact Grid
+  contactGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '24px',
+  },
+  contactCard: {
+    background: 'white',
+    padding: '32px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+    border: '1px solid #e5e7eb',
+    textAlign: 'center',
+  },
+  contactIcon: {
+    fontSize: '3rem',
+    marginBottom: '16px',
+  },
+  contactCardTitle: {
+    fontSize: '1.2rem',
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: '12px',
+    margin: '0 0 12px 0',
+  },
+  contactDetail: {
+    fontSize: '1rem',
+    color: '#64748b',
+    fontWeight: '600',
+    margin: 0,
+  },
+  contactLink: {
+    fontSize: '1rem',
+    color: '#0ea5e9',
+    fontWeight: '600',
+    textDecoration: 'none',
+    transition: 'color 0.2s ease',
+  },
+
+  // Info Section
+  infoSection: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '24px',
+    marginBottom: '48px',
+  },
+  infoCard: {
+    background: 'white',
+    padding: '32px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+    border: '1px solid #e5e7eb',
+  },
+  infoTitle: {
+    fontSize: '1.3rem',
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: '16px',
+    margin: '0 0 16px 0',
+  },
+  infoText: {
+    fontSize: '1rem',
+    color: '#64748b',
+    lineHeight: '1.6',
+    marginBottom: '8px',
+  },
+
+  // Lecturers Grid
+  lecturersGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+    gap: '24px',
+  },
+  lecturerCard: {
+    background: 'white',
+    padding: '32px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+    border: '1px solid #e5e7eb',
+    textAlign: 'center',
+    transition: 'all 0.3s ease',
+  },
+  lecturerAvatar: {
+    width: '80px',
+    height: '80px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+    color: 'white',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '2rem',
+    fontWeight: '700',
+    margin: '0 auto 16px',
+  },
+  lecturerName: {
+    fontSize: '1.2rem',
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: '8px',
+    margin: '0 0 8px 0',
+  },
+  lecturerClass: {
+    fontSize: '0.9rem',
+    color: '#64748b',
+    marginBottom: '12px',
+  },
+  lecturerEmail: {
+    fontSize: '0.9rem',
+    color: '#0ea5e9',
+    fontWeight: '600',
+    textDecoration: 'none',
+    transition: 'color 0.2s ease',
+  },
+
+  // Support Section
+  supportSection: {
+    background: 'linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%)',
+    padding: '48px',
+    borderRadius: '20px',
+    textAlign: 'center',
+    border: '2px solid #0ea5e9',
+  },
+  supportTitle: {
+    fontSize: '2rem',
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: '16px',
+    margin: '0 0 16px 0',
+  },
+  supportText: {
+    fontSize: '1.1rem',
+    color: '#64748b',
+    lineHeight: '1.6',
+    marginBottom: '32px',
+    maxWidth: '600px',
+    margin: '0 auto 32px',
+  },
+  supportButtons: {
+    display: 'flex',
+    gap: '16px',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  supportButton: {
+    padding: '16px 32px',
+    background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '1rem',
+    fontWeight: '700',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 8px 20px rgba(14,165,233,0.3)',
+  },
+  websiteButton: {
+    padding: '16px 32px',
+    background: 'white',
+    color: '#0ea5e9',
+    border: '2px solid #0ea5e9',
+    borderRadius: '12px',
+    fontSize: '1rem',
+    fontWeight: '700',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+  },
+
+  // Loading State
+  loadingState: {
+    textAlign: 'center',
+    padding: '60px 20px',
+    fontSize: '1.2rem',
+    color: '#64748b',
+  },
+  loadingSpinner: {
+    fontSize: '3rem',
+    marginBottom: '16px',
+  },
+
+  // Empty State
+  emptyState: {
+    textAlign: 'center',
+    padding: '60px 20px',
+  },
+  emptyIcon: {
+    fontSize: '4rem',
+    marginBottom: '20px',
+  },
+  emptyTitle: {
+    fontSize: '1.5rem',
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: '12px',
+    margin: '0 0 12px 0',
+  },
+  emptyText: {
+    fontSize: '1rem',
+    color: '#64748b',
+    margin: 0,
+  },
+};
