@@ -1,9 +1,13 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000';
 
 export default function Contact() {
     const navigate = useNavigate();
-    const [user] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
+    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || '{}'));
+    const [lecturers, setLecturers] = useState([]);
+    const [loadingLecturers, setLoadingLecturers] = useState(true);
     const [formData, setFormData] = useState({
         name: user?.name || '',
         email: user?.email || '',
@@ -12,6 +16,60 @@ export default function Contact() {
     });
     const [sending, setSending] = useState(false);
     const [success, setSuccess] = useState(false);
+
+    useEffect(() => {
+        const userData = localStorage.getItem('user');
+        const token = localStorage.getItem('access_token');
+
+        if (!userData || !token) {
+            navigate('/login');
+            return;
+        }
+
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+
+        // Fetch lecturers if student
+        if (parsedUser.role === 'student') {
+            fetchLecturers(token);
+        } else {
+            setLoadingLecturers(false);
+        }
+    }, [navigate]);
+
+    const fetchLecturers = async (token) => {
+        try {
+            // Get enrolled classes to find lecturers
+            const response = await fetch(`${API_BASE}/classes/enrolled`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const classes = data.classes || [];
+
+                // Extract unique lecturers
+                const uniqueLecturers = [];
+                const lecturerEmails = new Set();
+
+                classes.forEach(cls => {
+                    if (cls.lecturer_name && !lecturerEmails.has(cls.lecturer_name)) {
+                        lecturerEmails.add(cls.lecturer_name);
+                        uniqueLecturers.push({
+                            name: cls.lecturer_name,
+                            class: cls.class_name
+                        });
+                    }
+                });
+
+                setLecturers(uniqueLecturers);
+            }
+        } catch (error) {
+            console.error('Error fetching lecturers:', error);
+        } finally {
+            setLoadingLecturers(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -56,23 +114,87 @@ export default function Contact() {
             </header>
             <main style={{ padding: '80px 40px', maxWidth: '1400px', margin: '0 auto' }}>
                 <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-                    <h1 style={{ fontSize: '3.5rem', fontWeight: '800', color: 'white', marginBottom: '20px' }}>Get in Touch</h1>
+                    <h1 style={{ fontSize: '3.5rem', fontWeight: '800', color: 'white', marginBottom: '20px' }}>📞 Get in Touch</h1>
                     <p style={{ fontSize: '1.3rem', color: 'rgba(255,255,255,0.9)', maxWidth: '600px', margin: '0 auto' }}>Have a question or need assistance? We are here to help you succeed!</p>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '30px', marginBottom: '50px' }}>
-                    {[
-                        { icon: '', title: 'Email Us', text: 'support@aaas.edu.my', sub: 'Response within 24 hours' },
-                        { icon: '', title: 'Call Us', text: '+60 12-345 6789', sub: 'Mon-Fri, 8AM-5PM' },
-                        { icon: '', title: 'Visit Us', text: 'Faculty of Computing', sub: 'Universiti Malaysia Pahang, 26600 Pekan' }
-                    ].map((item, i) => (
-                        <div key={i} style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '40px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 25px', boxShadow: '0 10px 30px rgba(102,126,234,0.4)', fontSize: '2.5rem' }}>{item.icon}</div>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', marginBottom: '15px' }}>{item.title}</h3>
-                            <p style={{ fontSize: '1.1rem', color: '#4b5563', fontWeight: '600', marginBottom: '8px' }}>{item.text}</p>
-                            <p style={{ fontSize: '0.95rem', color: '#9ca3af' }}>{item.sub}</p>
+
+                {/* Faculty Contact Information */}
+                <div style={{ marginBottom: '50px' }}>
+                    <h2 style={{ fontSize: '2rem', fontWeight: '700', color: 'white', textAlign: 'center', marginBottom: '30px' }}>🏛️ Faculty of Computing</h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '30px' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📞</div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>GENERAL LINE</h3>
+                            <p style={{ fontSize: '1.3rem', color: '#3b82f6', fontWeight: '600', marginBottom: '5px' }}>09 - 431 5011</p>
                         </div>
-                    ))}
+
+                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>🎓</div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>ACADEMIC LINE</h3>
+                            <p style={{ fontSize: '1.3rem', color: '#3b82f6', fontWeight: '600', marginBottom: '5px' }}>09 - 431 5071</p>
+                        </div>
+
+                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📧</div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>EMAIL ADDRESS</h3>
+                            <a href="mailto:fk@umpsa.edu.my" style={{ fontSize: '1.1rem', color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>fk@umpsa.edu.my</a>
+                        </div>
+
+                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>🕒</div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>OFFICE HOUR</h3>
+                            <p style={{ fontSize: '1rem', color: '#4b5563', fontWeight: '600', marginBottom: '5px' }}>Monday - Friday</p>
+                            <p style={{ fontSize: '1.1rem', color: '#3b82f6', fontWeight: '600' }}>8:00 AM - 17:00 PM</p>
+                        </div>
+
+                        <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s', gridColumn: 'span 2' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '15px' }}>📍</div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1f2937', marginBottom: '12px' }}>OFFICE ADDRESS</h3>
+                            <p style={{ fontSize: '1rem', color: '#4b5563', lineHeight: '1.6' }}>
+                                Faculty of Computing,<br />
+                                Universiti Malaysia Pahang Al-Sultan Abdullah,<br />
+                                26600 Pekan, Pahang
+                            </p>
+                            <a href="https://fk.umpsa.edu.my/" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '12px', padding: '10px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: 'white', textDecoration: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600' }}>
+                                🌐 Visit Website
+                            </a>
+                        </div>
+                    </div>
                 </div>
+
+                {/* My Lecturers Section - Only for Students */}
+                {user?.role === 'student' && (
+                    <div style={{ marginBottom: '50px' }}>
+                        <h2 style={{ fontSize: '2rem', fontWeight: '700', color: 'white', textAlign: 'center', marginBottom: '30px' }}>👨‍🏫 My Lecturers</h2>
+                        {loadingLecturers ? (
+                            <div style={{ textAlign: 'center', color: 'white', padding: '40px' }}>
+                                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⏳</div>
+                                <p>Loading lecturer information...</p>
+                            </div>
+                        ) : lecturers.length > 0 ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
+                                {lecturers.map((lecturer, index) => (
+                                    <div key={index} style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '1.8rem' }}>👨‍🏫</div>
+                                        <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#1f2937', marginBottom: '8px', textAlign: 'center' }}>{lecturer.name}</h3>
+                                        <p style={{ fontSize: '0.95rem', color: '#6b7280', textAlign: 'center', marginBottom: '15px' }}>{lecturer.class}</p>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <a href={`mailto:${lecturer.name.toLowerCase().replace(' ', '.')}@umpsa.edu.my`} style={{ display: 'inline-block', padding: '8px 16px', background: '#e0f2fe', color: '#0369a1', textDecoration: 'none', borderRadius: '8px', fontSize: '0.9rem', fontWeight: '600' }}>
+                                                📧 Email Lecturer
+                                            </a>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '40px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+                                <p style={{ fontSize: '1.1rem', color: '#6b7280' }}>You are not enrolled in any classes yet. Enroll in a class to see your lecturers.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Contact Form */}
                 <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '20px', padding: '50px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxWidth: '800px', margin: '0 auto' }}>
                     {success ? (
                         <div style={{ textAlign: 'center', padding: '60px 40px' }}>

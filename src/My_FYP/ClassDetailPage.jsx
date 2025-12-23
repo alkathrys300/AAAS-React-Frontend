@@ -40,7 +40,10 @@ export default function ClassDetailPage() {
     // Pending enrollments states  
     const [pendingEnrollments, setPendingEnrollments] = useState([]);
     const [showPendingModal, setShowPendingModal] = useState(false);
+    const [showStudentsModal, setShowStudentsModal] = useState(false);
     const [loadingPending, setLoadingPending] = useState(false);
+    const [enrolledStudents, setEnrolledStudents] = useState([]);
+    const [loadingStudents, setLoadingStudents] = useState(false);
 
     // Rubric states
     const [existingRubric, setExistingRubric] = useState(null);
@@ -137,6 +140,29 @@ export default function ClassDetailPage() {
         }
     };
 
+    // Fetch enrolled students
+    const fetchEnrolledStudents = async (token) => {
+        setLoadingStudents(true);
+        try {
+            const response = await fetch(`${API_BASE}/class/${classId}/students`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setEnrolledStudents(data.students || []);
+            } else {
+                console.error('Failed to fetch enrolled students');
+                setEnrolledStudents([]);
+            }
+        } catch (error) {
+            console.error('Error fetching enrolled students:', error);
+            setEnrolledStudents([]);
+        } finally {
+            setLoadingStudents(false);
+        }
+    };
+
     // Fetch existing rubric
     const fetchExistingRubric = async (token) => {
         setLoadingRubric(true);
@@ -172,7 +198,7 @@ export default function ClassDetailPage() {
         // ✅ Immediately clear UI state for instant feedback (before API call)
         const previousRubric = existingRubric;
         setExistingRubric(null);
-        
+
         // Also clear form fields
         setRubricTitle('');
         setAssignmentTitle('');
@@ -180,7 +206,7 @@ export default function ClassDetailPage() {
 
         try {
             const token = localStorage.getItem('access_token');
-            const response = await fetch(`${API_BASE}/rubric/${rubricId}`, {
+            const response = await fetch(`${API_BASE}/class/${classId}/rubric`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -190,13 +216,13 @@ export default function ClassDetailPage() {
                 await fetchExistingRubric(token);
                 // Show success message after UI has updated
                 setTimeout(() => {
-                    alert('Rubric deleted successfully');
+                    alert('✅ Rubric deleted successfully!');
                 }, 100);
             } else {
                 const error = await response.json();
                 // Restore previous state if deletion failed
                 setExistingRubric(previousRubric);
-                alert('Failed to delete rubric: ' + (error.detail || 'Unknown error'));
+                alert('❌ Failed to delete rubric: ' + (error.detail || 'Unknown error'));
                 // Refresh to get actual state
                 await fetchExistingRubric(token);
             }
@@ -258,6 +284,63 @@ export default function ClassDetailPage() {
         }
     };
 
+    // Remove student from class
+    const handleRemoveStudent = async (studentId, studentName) => {
+        if (!window.confirm(`⚠️ Remove ${studentName} from this class?\n\nThis will:\n✓ Remove student from class enrollment\n✓ Delete ALL their submissions (${enrolledStudents.find(s => s.student_id === studentId)?.submission_count || 0} submission(s))\n\nThis action cannot be undone!`)) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_BASE}/class/${classId}/student/${studentId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                alert(result.msg);
+                // Refresh all data
+                fetchClassDetails(token);
+                fetchEnrolledStudents(token);
+                fetchAssignments(token);
+            } else {
+                const error = await response.json();
+                alert('Failed to remove student: ' + (error.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error removing student: ' + error.message);
+        }
+    };
+
+    // Delete individual assignment submission
+    const handleDeleteSubmission = async (scriptId, studentName) => {
+        if (!window.confirm(`Delete this submission from ${studentName}?\n\nThis will only delete this specific assignment, the student will remain enrolled in the class.`)) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_BASE}/assignment/${scriptId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                alert(result.msg);
+                // Refresh assignments
+                fetchAssignments(token);
+                fetchClassDetails(token);
+            } else {
+                const error = await response.json();
+                alert('Failed to delete submission: ' + (error.detail || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error deleting submission: ' + error.message);
+        }
+    };
+
     const fetchAssignmentFeedback = async (scriptId) => {
         setLoadingFeedback(true);
         try {
@@ -274,13 +357,13 @@ export default function ClassDetailPage() {
             if (feedbackResponse.ok) {
                 feedbackData = await feedbackResponse.json();
                 console.log('📊 Feedback received:', feedbackData);
-                
+
                 // Set feedback immediately - user sees it right away!
                 setFeedbackData({
                     ...feedbackData,
                     plagiarism: null  // Will load separately
                 });
-                
+
                 if (user?.role === 'lecturer') {
                     setManualScore(
                         feedbackData.manual_score === null || feedbackData.manual_score === undefined
@@ -325,7 +408,7 @@ export default function ClassDetailPage() {
                     const plagiarismResponse = await fetch(`${API_BASE}/assignment/${scriptId}/plagiarism?limit=5`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    
+
                     if (plagiarismResponse.ok) {
                         const plagiarismData = await plagiarismResponse.json();
                         console.log('🔍 Plagiarism data received:', plagiarismData);
@@ -671,7 +754,7 @@ export default function ClassDetailPage() {
                 if (fileInput) fileInput.value = '';
 
                 fetchAssignments(token);
-                
+
                 // Refresh rubric status if it was a rubric upload
                 if (isRubric) {
                     fetchExistingRubric(token);
@@ -1219,6 +1302,34 @@ export default function ClassDetailPage() {
                                 <p><strong>Recent Activity:</strong> {classData?.recent_activity_count} submissions</p>
                                 <p><strong>Enrollment Code:</strong> <code>{classData?.enrollment_code}</code></p>
 
+                                {/* Enrolled Students Management */}
+                                {classData?.student_count > 0 && (
+                                    <div style={{ marginTop: '15px', padding: '15px', background: '#e0f2fe', borderRadius: '8px', border: '1px solid #0ea5e9' }}>
+                                        <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: '#0c4a6e' }}>
+                                            👥 Manage Students ({classData?.student_count})
+                                        </p>
+                                        <button
+                                            style={{
+                                                background: '#0ea5e9',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '8px 16px',
+                                                borderRadius: '6px',
+                                                fontSize: '0.9rem',
+                                                cursor: 'pointer',
+                                                fontWeight: '600'
+                                            }}
+                                            onClick={() => {
+                                                const token = localStorage.getItem('access_token');
+                                                fetchEnrolledStudents(token);
+                                                setShowStudentsModal(true);
+                                            }}
+                                        >
+                                            View & Manage Students
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* Pending Enrollments Section */}
                                 {pendingEnrollments.length > 0 && (
                                     <div style={{ marginTop: '15px', padding: '15px', background: '#fef3c7', borderRadius: '8px', border: '1px solid #f59e0b' }}>
@@ -1284,8 +1395,10 @@ export default function ClassDetailPage() {
                         assignments.map(assignment => (
                             <div
                                 key={assignment.script_id}
-                                style={styles.assignmentItem}
-                                onClick={() => handleAssignmentClick(assignment)}
+                                style={{
+                                    ...styles.assignmentItem,
+                                    cursor: 'default'
+                                }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-2px)';
                                     e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
@@ -1295,14 +1408,55 @@ export default function ClassDetailPage() {
                                     e.currentTarget.style.boxShadow = '0 5px 15px rgba(0,0,0,0.1)';
                                 }}
                             >
-                                <div style={styles.clickHint}>👁️ View Feedback</div>
-                                <h4>{assignment.assignment_title || 'Untitled Assignment'}</h4>
-                                <p><strong>Student ID:</strong> {assignment.student_id}</p>
-                                <p><strong>Submitted:</strong> {new Date(assignment.submitted_at).toLocaleDateString()}</p>
-                                <p><strong>Status:</strong> {assignment.status}</p>
-                                <p style={{ fontSize: '0.9rem', color: '#6b7280' }}>
-                                    {assignment.content_preview || "Click to view full content and feedback"}
-                                </p>
+                                {/* Delete button for lecturer */}
+                                {user?.role === 'lecturer' && (
+                                    <button
+                                        style={{
+                                            position: 'absolute',
+                                            top: '15px',
+                                            right: '15px',
+                                            background: '#ef4444',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '8px 16px',
+                                            borderRadius: '8px',
+                                            fontSize: '0.9rem',
+                                            cursor: 'pointer',
+                                            fontWeight: '600',
+                                            transition: 'all 0.3s ease',
+                                            zIndex: 10
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteSubmission(assignment.script_id, assignment.student_name || `Student ${assignment.student_id}`);
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.background = '#dc2626';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.background = '#ef4444';
+                                        }}
+                                    >
+                                        🗑️ Delete
+                                    </button>
+                                )}
+
+                                <div
+                                    style={{ cursor: 'pointer', paddingRight: user?.role === 'lecturer' ? '100px' : '0' }}
+                                    onClick={() => handleAssignmentClick(assignment)}
+                                >
+                                    <div style={styles.clickHint}>👁️ View Feedback</div>
+                                    <h4>{assignment.assignment_title || 'Untitled Assignment'}</h4>
+                                    <p><strong>Student ID:</strong> {assignment.student_id}</p>
+                                    {assignment.student_name && (
+                                        <p><strong>Student Name:</strong> {assignment.student_name}</p>
+                                    )}
+                                    <p><strong>Submitted:</strong> {new Date(assignment.submitted_at).toLocaleDateString()}</p>
+                                    <p><strong>Status:</strong> {assignment.status}</p>
+                                    <p style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                                        {assignment.content_preview || "Click to view full content and feedback"}
+                                    </p>
+                                </div>
                             </div>
                         ))
                     )}
@@ -1731,7 +1885,7 @@ export default function ClassDetailPage() {
                                                         display: 'inline-block',
                                                         background: feedbackData.rubric_score >= 80 ? 'linear-gradient(135deg, #10b981, #059669)' :
                                                             feedbackData.rubric_score >= 60 ? 'linear-gradient(135deg, #f59e0b, #d97706)' :
-                                                            'linear-gradient(135deg, #ef4444, #dc2626)',
+                                                                'linear-gradient(135deg, #ef4444, #dc2626)',
                                                         color: 'white',
                                                         padding: '8px 16px',
                                                         borderRadius: '20px',
@@ -1742,7 +1896,7 @@ export default function ClassDetailPage() {
                                                         Rubric Score: {feedbackData.rubric_score}/100
                                                     </div>
                                                 )}
-                                                
+
                                                 {/* ✅ PROMINENT: What Student Followed vs Not Followed */}
                                                 {feedbackData.rubric_criteria && feedbackData.rubric_criteria.length > 0 && (
                                                     <div style={{ marginTop: '20px', marginBottom: '20px' }}>
@@ -1754,9 +1908,9 @@ export default function ClassDetailPage() {
                                                                 borderRadius: '12px',
                                                                 padding: '20px'
                                                             }}>
-                                                                <h4 style={{ 
-                                                                    color: '#059669', 
-                                                                    marginBottom: '15px', 
+                                                                <h4 style={{
+                                                                    color: '#059669',
+                                                                    marginBottom: '15px',
                                                                     fontSize: '1.2rem',
                                                                     fontWeight: 'bold',
                                                                     display: 'flex',
@@ -1770,8 +1924,8 @@ export default function ClassDetailPage() {
                                                                         {feedbackData.rubric_criteria
                                                                             .filter(c => c.followed === true || (c.followed === undefined && c.score >= 70))
                                                                             .map((criterion, index) => (
-                                                                                <li key={index} style={{ 
-                                                                                    color: '#059669', 
+                                                                                <li key={index} style={{
+                                                                                    color: '#059669',
                                                                                     marginBottom: '8px',
                                                                                     fontWeight: '600'
                                                                                 }}>
@@ -1783,7 +1937,7 @@ export default function ClassDetailPage() {
                                                                     <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No criteria fully followed</p>
                                                                 )}
                                                             </div>
-                                                            
+
                                                             {/* Criteria NOT Followed */}
                                                             <div style={{
                                                                 background: '#fef2f2',
@@ -1791,9 +1945,9 @@ export default function ClassDetailPage() {
                                                                 borderRadius: '12px',
                                                                 padding: '20px'
                                                             }}>
-                                                                <h4 style={{ 
-                                                                    color: '#dc2626', 
-                                                                    marginBottom: '15px', 
+                                                                <h4 style={{
+                                                                    color: '#dc2626',
+                                                                    marginBottom: '15px',
                                                                     fontSize: '1.2rem',
                                                                     fontWeight: 'bold',
                                                                     display: 'flex',
@@ -1807,8 +1961,8 @@ export default function ClassDetailPage() {
                                                                         {feedbackData.rubric_criteria
                                                                             .filter(c => c.followed === false || (c.followed === undefined && c.score < 40))
                                                                             .map((criterion, index) => (
-                                                                                <li key={index} style={{ 
-                                                                                    color: '#dc2626', 
+                                                                                <li key={index} style={{
+                                                                                    color: '#dc2626',
                                                                                     marginBottom: '8px',
                                                                                     fontWeight: '600'
                                                                                 }}>
@@ -1821,7 +1975,7 @@ export default function ClassDetailPage() {
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        
+
                                                         {/* Partially Followed */}
                                                         {feedbackData.rubric_criteria.filter(c => c.followed === null || (c.followed === undefined && c.score >= 40 && c.score < 70)).length > 0 && (
                                                             <div style={{
@@ -1831,9 +1985,9 @@ export default function ClassDetailPage() {
                                                                 padding: '20px',
                                                                 marginTop: '15px'
                                                             }}>
-                                                                <h4 style={{ 
-                                                                    color: '#d97706', 
-                                                                    marginBottom: '15px', 
+                                                                <h4 style={{
+                                                                    color: '#d97706',
+                                                                    marginBottom: '15px',
                                                                     fontSize: '1.2rem',
                                                                     fontWeight: 'bold',
                                                                     display: 'flex',
@@ -1846,8 +2000,8 @@ export default function ClassDetailPage() {
                                                                     {feedbackData.rubric_criteria
                                                                         .filter(c => c.followed === null || (c.followed === undefined && c.score >= 40 && c.score < 70))
                                                                         .map((criterion, index) => (
-                                                                            <li key={index} style={{ 
-                                                                                color: '#d97706', 
+                                                                            <li key={index} style={{
+                                                                                color: '#d97706',
                                                                                 marginBottom: '8px',
                                                                                 fontWeight: '600'
                                                                             }}>
@@ -1859,7 +2013,7 @@ export default function ClassDetailPage() {
                                                         )}
                                                     </div>
                                                 )}
-                                                
+
                                                 {/* Summary if available */}
                                                 {feedbackData.rubric_summary && (
                                                     <div style={{
@@ -1883,7 +2037,7 @@ export default function ClassDetailPage() {
                                                         </div>
                                                     </div>
                                                 )}
-                                                
+
                                                 {/* Detailed Criteria Evaluation with Followed/Not Followed Status */}
                                                 {feedbackData.rubric_criteria && feedbackData.rubric_criteria.length > 0 && (
                                                     <div style={{ marginTop: '20px' }}>
@@ -1927,7 +2081,7 @@ export default function ClassDetailPage() {
                                                                             </span>
                                                                         </div>
                                                                     </div>
-                                                                    
+
                                                                     <div style={{
                                                                         background: 'rgba(255,255,255,0.7)',
                                                                         borderRadius: '8px',
@@ -1937,7 +2091,7 @@ export default function ClassDetailPage() {
                                                                         <strong style={{ color: '#4b5563' }}>Feedback:</strong>
                                                                         <p style={{ margin: '5px 0 0 0', color: '#1f2937', lineHeight: '1.6' }}>{criterion.feedback}</p>
                                                                     </div>
-                                                                    
+
                                                                     {criterion.evidence && (
                                                                         <div style={{
                                                                             background: '#f9fafb',
@@ -1952,7 +2106,7 @@ export default function ClassDetailPage() {
                                                                             <strong>Evidence:</strong> "{criterion.evidence}"
                                                                         </div>
                                                                     )}
-                                                                    
+
                                                                     {criterion.strengths && criterion.strengths.length > 0 && (
                                                                         <div style={{ marginTop: '10px' }}>
                                                                             <strong style={{ color: '#059669', display: 'block', marginBottom: '5px' }}>✅ Strengths:</strong>
@@ -1963,7 +2117,7 @@ export default function ClassDetailPage() {
                                                                             </ul>
                                                                         </div>
                                                                     )}
-                                                                    
+
                                                                     {criterion.weaknesses && criterion.weaknesses.length > 0 && (
                                                                         <div style={{ marginTop: '10px' }}>
                                                                             <strong style={{ color: '#dc2626', display: 'block', marginBottom: '5px' }}>❌ What's Missing (To Follow This Criterion):</strong>
@@ -1974,7 +2128,7 @@ export default function ClassDetailPage() {
                                                                             </ul>
                                                                         </div>
                                                                     )}
-                                                                    
+
                                                                     {criterion.suggestions && criterion.suggestions.length > 0 && (
                                                                         <div style={{ marginTop: '10px' }}>
                                                                             <strong style={{ color: '#3b82f6', display: 'block', marginBottom: '5px' }}>💡 Suggestions to Improve:</strong>
@@ -1990,7 +2144,7 @@ export default function ClassDetailPage() {
                                                         })}
                                                     </div>
                                                 )}
-                                                
+
                                                 {/* Overall Assessment Text */}
                                                 <div style={{
                                                     ...styles.feedbackText,
@@ -2002,7 +2156,7 @@ export default function ClassDetailPage() {
                                                 }}>
                                                     {feedbackData.rubric_assessment}
                                                 </div>
-                                                
+
                                                 {/* Recommendations */}
                                                 {feedbackData.rubric_recommendations && feedbackData.rubric_recommendations.length > 0 && (
                                                     <div style={{
@@ -2038,7 +2192,7 @@ export default function ClassDetailPage() {
                                                         No rubric evaluation available
                                                     </p>
                                                     <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem' }}>
-                                                        {user?.role === 'lecturer' 
+                                                        {user?.role === 'lecturer'
                                                             ? 'No rubric has been uploaded for this class, or the rubric was deleted. Upload a rubric to enable rubric-based evaluation for student assignments.'
                                                             : 'Your instructor has not uploaded a rubric for this assignment yet, or the rubric was removed.'}
                                                     </p>
@@ -2165,6 +2319,103 @@ export default function ClassDetailPage() {
                                                     ❌ Reject
                                                 </button>
                                             </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ENROLLED STUDENTS MANAGEMENT MODAL */}
+            {showStudentsModal && (
+                <div style={styles.modal} onClick={() => setShowStudentsModal(false)}>
+                    <div style={{ ...styles.modalContent, maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={styles.modalHeader}>
+                            <h2 style={styles.modalTitle}>
+                                👥 Enrolled Students ({enrolledStudents.length})
+                            </h2>
+                            <button
+                                style={styles.closeButton}
+                                onClick={() => setShowStudentsModal(false)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {loadingStudents ? (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                                Loading enrolled students...
+                            </div>
+                        ) : enrolledStudents.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                                No students enrolled in this class yet
+                            </div>
+                        ) : (
+                            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                {enrolledStudents.map(student => (
+                                    <div key={student.student_id} style={{
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        padding: '15px',
+                                        marginBottom: '15px',
+                                        background: '#f9fafb'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{
+                                                    fontWeight: 'bold',
+                                                    marginBottom: '5px',
+                                                    color: '#1f2937'
+                                                }}>
+                                                    {student.student_name}
+                                                </div>
+                                                <div style={{
+                                                    color: '#6b7280',
+                                                    fontSize: '0.9rem',
+                                                    marginBottom: '5px'
+                                                }}>
+                                                    📧 {student.student_email}
+                                                </div>
+                                                <div style={{
+                                                    color: '#6b7280',
+                                                    fontSize: '0.9rem'
+                                                }}>
+                                                    ID: {student.student_id} • {student.submission_count} submission{student.submission_count !== 1 ? 's' : ''}
+                                                </div>
+                                                <div style={{
+                                                    color: '#6b7280',
+                                                    fontSize: '0.8rem',
+                                                    marginTop: '3px'
+                                                }}>
+                                                    Enrolled: {new Date(student.enrolled_at).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                            <button
+                                                style={{
+                                                    background: '#ef4444',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    padding: '8px 16px',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.9rem',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600',
+                                                    transition: 'all 0.3s ease'
+                                                }}
+                                                onClick={() => {
+                                                    handleRemoveStudent(student.student_id, student.student_name);
+                                                }}
+                                                onMouseEnter={(e) => e.target.style.background = '#dc2626'}
+                                                onMouseLeave={(e) => e.target.style.background = '#ef4444'}
+                                            >
+                                                🗑️ Remove
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
