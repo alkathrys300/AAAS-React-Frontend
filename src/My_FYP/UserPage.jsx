@@ -6,6 +6,7 @@ const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000';
 export default function UserPage() {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [recentActivities, setRecentActivities] = useState([]);
     const [stats, setStats] = useState({ totalUploads: 0, avgScore: 0, completedTasks: 0 });
 
@@ -20,6 +21,7 @@ export default function UserPage() {
 
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
+        setLoading(false);
 
         // Fetch real user stats from backend
         fetchUserStats(token, parsedUser.user_id);
@@ -27,14 +29,41 @@ export default function UserPage() {
 
     const fetchUserStats = async (token, userId) => {
         try {
-            const response = await fetch(`${API_BASE}/user/${userId}/stats`, {
+            // Fetch submissions data
+            const response = await fetch(`${API_BASE}/student/submissions`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (response.ok) {
                 const data = await response.json();
-                setStats(data);
-                setRecentActivities(data.recent_activities || []);
+                const submissions = data.submissions || [];
+                
+                // Calculate stats from real data
+                const totalUploads = submissions.length;
+                const completedTasks = submissions.filter(s => s.status === 'evaluated').length;
+                
+                // Calculate average score
+                const submissionsWithScores = submissions.filter(s => s.score !== null && s.score !== undefined);
+                const avgScore = submissionsWithScores.length > 0
+                    ? Math.round(submissionsWithScores.reduce((sum, s) => sum + s.score, 0) / submissionsWithScores.length)
+                    : 0;
+                
+                setStats({
+                    totalUploads,
+                    avgScore,
+                    completedTasks
+                });
+                
+                // Set recent activities
+                const recentActivities = submissions.slice(-3).reverse().map(sub => ({
+                    id: sub.script_id,
+                    title: sub.class_name,
+                    action: 'Uploaded assignment',
+                    time: new Date(sub.submitted_at).toLocaleDateString(),
+                    type: 'upload'
+                }));
+                
+                setRecentActivities(recentActivities);
             }
         } catch (error) {
             console.log('Could not fetch stats:', error);
@@ -44,7 +73,7 @@ export default function UserPage() {
     const handleLogout = () => {
         localStorage.removeItem('access_token');
         localStorage.removeItem('user');
-        window.location.href = 'http://localhost:3001/';
+        navigate('/');
     };
 
     if (loading) return (
@@ -219,21 +248,21 @@ export default function UserPage() {
                             </div>
 
                             <div style={styles.statItem}>
-                                <div style={styles.statNumber}>{stats.totalUploads || 1}</div>
+                                <div style={styles.statNumber}>{stats.totalUploads || 0}</div>
                                 <div style={styles.statLabel}>Uploads</div>
                             </div>
 
                             <div style={styles.statDivider}></div>
 
                             <div style={styles.statItem}>
-                                <div style={styles.statNumber}>{stats.avgScore || 75}%</div>
+                                <div style={styles.statNumber}>{stats.avgScore || 0}%</div>
                                 <div style={styles.statLabel}>Avg Score</div>
                             </div>
 
                             <div style={styles.statDivider}></div>
 
                             <div style={styles.statItem}>
-                                <div style={styles.statNumber}>{stats.completedTasks || 1}</div>
+                                <div style={styles.statNumber}>{stats.completedTasks || 0}</div>
                                 <div style={styles.statLabel}>Completed</div>
                             </div>
                         </div>

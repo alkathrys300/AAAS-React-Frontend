@@ -46,7 +46,7 @@ export default function Contact() {
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
-    window.location.href = 'http://localhost:3001/';
+    navigate('/');
   };
 
   if (!user) return <div style={styles.loadingContainer}>Loading...</div>;

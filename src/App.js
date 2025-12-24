@@ -6,6 +6,7 @@ import UserPage from './My_FYP/UserPage';
 import Home from './My_FYP/Home';
 import ClassesPage from './My_FYP/ClassesPage';
 import ClassDetailPage from './My_FYP/ClassDetailPage';
+import AssignmentDetailPage from './My_FYP/AssignmentDetailPage';
 import AdminDashboard from './My_FYP/AdminDashboard';
 import AdminUserManagement from './My_FYP/AdminUserManagement';
 import PendingUsers from './My_FYP/PendingUsers';
@@ -28,6 +29,7 @@ function App() {
         <Route path="/userpage" element={<UserPage />} />
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/class/:classId" element={<ClassDetailPage />} />
+        <Route path="/class/:classId/assignment/:assignmentId" element={<AssignmentDetailPage />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/submissions" element={<SubmissionsPage />} />

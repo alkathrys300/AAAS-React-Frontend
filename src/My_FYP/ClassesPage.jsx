@@ -32,12 +32,15 @@ export default function ClassesPage() {
     try {
       if (role === 'student') {
         // Fetch enrolled classes
-        const enrolledRes = await fetch(`${API_BASE}/student/${userId}/classes`, {
+        const enrolledRes = await fetch(`${API_BASE}/classes/enrolled`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (enrolledRes.ok) {
           const data = await enrolledRes.json();
+          console.log('Enrolled classes:', data);
           setEnrolledClasses(data.classes || []);
+        } else {
+          console.error('Failed to fetch enrolled classes:', enrolledRes.status);
         }
 
         // Fetch available classes
@@ -46,16 +49,22 @@ export default function ClassesPage() {
         });
         if (availableRes.ok) {
           const data = await availableRes.json();
+          console.log('Available classes:', data);
           setAvailableClasses(data.classes || []);
+        } else {
+          console.error('Failed to fetch available classes:', availableRes.status);
         }
       } else if (role === 'lecturer') {
         // Fetch lecturer's classes
-        const res = await fetch(`${API_BASE}/lecturer/${userId}/classes`, {
+        const res = await fetch(`${API_BASE}/classes/my`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
           const data = await res.json();
+          console.log('Lecturer classes:', data);
           setEnrolledClasses(data.classes || []);
+        } else {
+          console.error('Failed to fetch lecturer classes:', res.status);
         }
       }
     } catch (error) {
@@ -98,7 +107,7 @@ export default function ClassesPage() {
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
-    window.location.href = 'http://localhost:3001/';
+    navigate('/');
   };
 
   if (!user) return <div style={styles.loadingContainer}>Loading...</div>;
@@ -243,9 +252,9 @@ export default function ClassesPage() {
                     >
                       <div style={styles.classCardHeader}>
                         <div style={styles.classIcon}>📘</div>
-                        <div style={styles.classStatus}>Active</div>
+                        <div style={styles.classStatus}>{classItem.enrollment_status === 'approved' ? 'Active' : 'Pending'}</div>
                       </div>
-                      <h3 style={styles.className}>{classItem.name}</h3>
+                      <h3 style={styles.className}>{classItem.class_name}</h3>
                       <p style={styles.classDescription}>{classItem.description || 'No description available'}</p>
                       <div style={styles.classFooter}>
                         <div style={styles.classInfo}>

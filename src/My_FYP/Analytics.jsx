@@ -26,21 +26,82 @@ export default function Analytics() {
   const fetchAnalytics = async (token, userId, role) => {
     setLoading(true);
     try {
-      const endpoint = role === 'lecturer' 
-        ? `${API_BASE}/lecturer/${userId}/analytics`
-        : `${API_BASE}/student/${userId}/analytics`;
-      
-      const res = await fetch(endpoint, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setAnalytics({ ...data, role });
+      if (role === 'student') {
+        // Fetch enrolled classes
+        const classesRes = await fetch(`${API_BASE}/classes/enrolled`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        // Fetch submissions data
+        const submissionsRes = await fetch(`${API_BASE}/student/submissions`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let enrolledClasses = [];
+        let submissions = [];
+        
+        if (classesRes.ok) {
+          const classesData = await classesRes.json();
+          enrolledClasses = classesData.classes || [];
+        }
+        
+        if (submissionsRes.ok) {
+          const submissionsData = await submissionsRes.json();
+          submissions = submissionsData.submissions || [];
+        }
+        
+        // Calculate analytics from submissions
+        const evaluated = submissions.filter(s => s.status === 'evaluated').length;
+        const pending = submissions.filter(s => s.status === 'pending').length;
+        const feedbackReceived = submissions.filter(s => s.has_feedback).length;
+        
+        // Calculate average score from evaluated submissions with scores
+        const submissionsWithScores = submissions.filter(s => s.score !== null && s.score !== undefined);
+        const avgScore = submissionsWithScores.length > 0
+          ? Math.round(submissionsWithScores.reduce((sum, s) => sum + s.score, 0) / submissionsWithScores.length)
+          : 0;
+        
+        const analyticsData = {
+          role: 'student',
+          enrolled_classes: enrolledClasses.length,
+          total_submissions: submissions.length,
+          evaluated: evaluated,
+          pending_review: pending,
+          feedback_received: feedbackReceived,
+          avg_score: avgScore,
+          notifications: 0,
+          classes: enrolledClasses,
+          submissions: submissions,
+          recent_submissions: submissions.slice(-5).reverse() // Last 5 submissions
+        };
+        
+        setAnalytics(analyticsData);
+      } else if (role === 'lecturer') {
+        const classesRes = await fetch(`${API_BASE}/classes/my`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (classesRes.ok) {
+          const classesData = await classesRes.json();
+          const myClasses = classesData.classes || [];
+          
+          setAnalytics({
+            role: 'lecturer',
+            total_classes: myClasses.length,
+            total_assignments: 0,
+            graded: 0,
+            pending: 0,
+            feedback_given: 0,
+            pending_enrollments: 0,
+            classes: myClasses
+          });
+        } else {
+          setAnalytics({ role: 'lecturer', total_classes: 0, classes: [] });
+        }
       }
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      setAnalytics({ role });
+      setAnalytics({ role, enrolled_classes: 0, total_submissions: 0, classes: [] });
     } finally {
       setLoading(false);
     }
@@ -49,7 +110,7 @@ export default function Analytics() {
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
-    window.location.href = 'http://localhost:3001/';
+    navigate('/');
   };
 
   if (!user) return <div style={styles.loadingContainer}>Loading...</div>;
