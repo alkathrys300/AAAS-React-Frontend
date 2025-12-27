@@ -4,736 +4,312 @@ import { useNavigate } from 'react-router-dom';
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000';
 
 export default function AdminAnalytics() {
-    const navigate = useNavigate();
-    const [analytics, setAnalytics] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
 
-    useEffect(() => {
-        fetchAnalytics();
-    }, []);
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
 
-    const fetchAnalytics = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(`${API_BASE}/admin/analytics`);
-            const data = await response.json();
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/admin/analytics`);
+      const data = await response.json();
 
-            if (data.success) {
-                setAnalytics(data);
-            } else {
-                setError('Failed to load analytics data');
-            }
-        } catch (err) {
-            setError('Error fetching analytics: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const exportToCSV = () => {
-        if (!analytics) return;
-
-        let csvContent = "AAAS System Analytics Report\n\n";
-        csvContent += "=== OVERVIEW ===\n";
-        csvContent += `Total Users,${analytics.overview.total_users}\n`;
-        csvContent += `Total Students,${analytics.overview.total_students}\n`;
-        csvContent += `Total Lecturers,${analytics.overview.total_lecturers}\n`;
-        csvContent += `Total Classes,${analytics.overview.total_classes}\n`;
-        csvContent += `Total Submissions,${analytics.overview.total_submissions}\n`;
-        csvContent += `Total Evaluations,${analytics.overview.total_evaluations}\n\n`;
-
-        csvContent += "=== PLAGIARISM STATISTICS ===\n";
-        csvContent += `High Risk (70%+),${analytics.plagiarism_stats.high_risk}\n`;
-        csvContent += `Medium Risk (40-70%),${analytics.plagiarism_stats.medium_risk}\n`;
-        csvContent += `Low Risk (<40%),${analytics.plagiarism_stats.low_risk}\n\n`;
-
-        csvContent += "=== MOST ACTIVE CLASSES ===\n";
-        csvContent += "Class Name,Class Code,Enrollments\n";
-        analytics.most_active_classes.forEach(cls => {
-            csvContent += `${cls.class_name},${cls.class_code},${cls.enrollments}\n`;
-        });
-        csvContent += "\n=== MOST ACTIVE STUDENTS ===\n";
-        csvContent += "Name,Email,Submissions\n";
-        analytics.most_active_students.forEach(student => {
-            csvContent += `${student.name},${student.email},${student.submissions}\n`;
-        });
-
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `AAAS_Analytics_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-    };
-
-    const styles = {
-        container: {
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: '20px',
-        },
-        header: {
-            background: 'white',
-            borderRadius: '15px',
-            padding: '20px 30px',
-            marginBottom: '20px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-        },
-        headerTop: {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '20px',
-        },
-        title: {
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            color: '#333',
-            margin: 0,
-        },
-        nav: {
-            display: 'flex',
-            gap: '10px',
-        },
-        navButton: {
-            padding: '10px 20px',
-            border: 'none',
-            borderRadius: '8px',
-            background: '#667eea',
-            color: 'white',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-        },
-        tabs: {
-            display: 'flex',
-            gap: '10px',
-            borderBottom: '2px solid #e0e0e0',
-            paddingBottom: '10px',
-        },
-        tab: {
-            padding: '10px 20px',
-            border: 'none',
-            background: 'transparent',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            fontWeight: '600',
-            color: '#666',
-            borderBottom: '3px solid transparent',
-            transition: 'all 0.2s',
-        },
-        tabActive: {
-            color: '#667eea',
-            borderBottom: '3px solid #667eea',
-        },
-        content: {
-            background: 'white',
-            borderRadius: '15px',
-            padding: '30px',
-            marginBottom: '20px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-        },
-        statsGrid: {
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '20px',
-            marginBottom: '30px',
-        },
-        statCard: {
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: '20px',
-            borderRadius: '12px',
-            color: 'white',
-            textAlign: 'center',
-        },
-        statValue: {
-            fontSize: '2.5rem',
-            fontWeight: 'bold',
-            marginBottom: '5px',
-        },
-        statLabel: {
-            fontSize: '0.9rem',
-            opacity: 0.9,
-        },
-        chartContainer: {
-            marginBottom: '30px',
-        },
-        chartTitle: {
-            fontSize: '1.3rem',
-            fontWeight: 'bold',
-            marginBottom: '15px',
-            color: '#333',
-        },
-        barChart: {
-            display: 'flex',
-            alignItems: 'flex-end',
-            gap: '10px',
-            height: '200px',
-            padding: '10px',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-        },
-        bar: {
-            flex: 1,
-            background: 'linear-gradient(to top, #667eea, #764ba2)',
-            borderRadius: '8px 8px 0 0',
-            minHeight: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            padding: '5px',
-            color: 'white',
-            fontSize: '0.8rem',
-            fontWeight: 'bold',
-        },
-        table: {
-            width: '100%',
-            borderCollapse: 'collapse',
-            marginTop: '20px',
-        },
-        th: {
-            background: '#667eea',
-            color: 'white',
-            padding: '12px',
-            textAlign: 'left',
-            fontWeight: '600',
-        },
-        td: {
-            padding: '12px',
-            borderBottom: '1px solid #e0e0e0',
-        },
-        badge: {
-            padding: '4px 12px',
-            borderRadius: '12px',
-            fontSize: '0.85rem',
-            fontWeight: '600',
-            display: 'inline-block',
-        },
-        badgeHigh: {
-            background: '#fee',
-            color: '#c00',
-        },
-        badgeMedium: {
-            background: '#fff3cd',
-            color: '#856404',
-        },
-        badgeLow: {
-            background: '#d4edda',
-            color: '#155724',
-        },
-        error: {
-            background: '#fee',
-            color: '#c00',
-            padding: '15px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-        },
-        loading: {
-            textAlign: 'center',
-            padding: '50px',
-            fontSize: '1.2rem',
-            color: 'white',
-        },
-        pieChart: {
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '30px',
-            padding: '20px',
-        },
-        pieSegment: {
-            textAlign: 'center',
-            padding: '20px',
-            borderRadius: '12px',
-            minWidth: '120px',
-        },
-        lineChart: {
-            display: 'flex',
-            alignItems: 'flex-end',
-            gap: '5px',
-            height: '150px',
-            padding: '10px',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-            overflowX: 'auto',
-        },
-        linePoint: {
-            flex: 1,
-            minWidth: '40px',
-            background: '#667eea',
-            borderRadius: '4px 4px 0 0',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            padding: '5px 2px',
-            color: 'white',
-            fontSize: '0.7rem',
-            textAlign: 'center',
-        },
-        hourlyChart: {
-            padding: '30px 20px 40px 50px',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-            position: 'relative',
-        },
-        hourlyChartInner: {
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'space-around',
-            height: '250px',
-            borderLeft: '2px solid #ddd',
-            borderBottom: '2px solid #ddd',
-            paddingLeft: '10px',
-            paddingBottom: '10px',
-            position: 'relative',
-        },
-        hourBar: {
-            flex: 1,
-            background: 'linear-gradient(to top, #667eea, #764ba2)',
-            borderRadius: '4px 4px 0 0',
-            margin: '0 3px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-start',
-            alignItems: 'center',
-            paddingTop: '8px',
-            color: 'white',
-            fontSize: '0.75rem',
-            fontWeight: 'bold',
-            transition: 'all 0.3s ease',
-            cursor: 'pointer',
-            position: 'relative',
-        },
-        hourLabel: {
-            position: 'absolute',
-            bottom: '-25px',
-            fontSize: '0.7rem',
-            color: '#666',
-            fontWeight: '500',
-        },
-        yAxisLabel: {
-            position: 'absolute',
-            left: '5px',
-            top: '50%',
-            transform: 'translateY(-50%) rotate(-90deg)',
-            fontSize: '0.85rem',
-            color: '#666',
-            fontWeight: '600',
-        },
-        xAxisLabel: {
-            position: 'absolute',
-            bottom: '5px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            fontSize: '0.85rem',
-            color: '#666',
-            fontWeight: '600',
-        },
-    };
-
-    if (loading) {
-        return (
-            <div style={styles.container}>
-                <div style={styles.loading}>⏳ Loading analytics data...</div>
-            </div>
-        );
+      if (data.success) {
+        setAnalytics(data);
+      }
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (error) {
-        return (
-            <div style={styles.container}>
-                <div style={styles.error}>{error}</div>
-            </div>
-        );
-    }
+  const exportToCSV = () => {
+    if (!analytics) return;
 
-    if (!analytics) {
-        return (
-            <div style={styles.container}>
-                <div style={styles.error}>No analytics data available</div>
-            </div>
-        );
-    }
+    let csvContent = "AAAS System Analytics Report\n\n";
+    csvContent += "=== OVERVIEW ===\n";
+    csvContent += `Total Users,${analytics.overview.total_users}\n`;
+    csvContent += `Total Students,${analytics.overview.total_students}\n`;
+    csvContent += `Total Lecturers,${analytics.overview.total_lecturers}\n`;
+    csvContent += `Total Classes,${analytics.overview.total_classes}\n`;
+    csvContent += `Total Submissions,${analytics.overview.total_submissions}\n`;
+    csvContent += `Total Evaluations,${analytics.overview.total_evaluations}\n\n`;
 
-    const maxSubmissions = Math.max(...analytics.submission_trends.map(s => s.count), 1);
-    const maxHourly = Math.max(...analytics.peak_hours.map(h => h.count), 1);
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `AAAS_Analytics_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
-    return (
-        <div style={styles.container}>
-            {/* Header */}
-            <div style={styles.header}>
-                <div style={styles.headerTop}>
-                    <h1 style={styles.title}>📊 System Analytics</h1>
-                    <div style={styles.nav}>
-                        <button
-                            style={styles.navButton}
-                            onClick={exportToCSV}
-                            onMouseOver={(e) => e.target.style.background = '#5568d3'}
-                            onMouseOut={(e) => e.target.style.background = '#667eea'}
-                        >
-                            📥 Export CSV
-                        </button>
-                        <button
-                            style={styles.navButton}
-                            onClick={() => navigate('/admin/dashboard')}
-                            onMouseOver={(e) => e.target.style.background = '#5568d3'}
-                            onMouseOut={(e) => e.target.style.background = '#667eea'}
-                        >
-                            ← Back to Dashboard
-                        </button>
-                    </div>
-                </div>
+  const handleLogout = () => {
+    // Clear all session data
+    localStorage.clear();
+    sessionStorage.clear();
+    // Navigate to home page with replace to prevent going back to analytics
+    navigate('/', { replace: true });
+  };
 
-                {/* Tabs */}
-                <div style={styles.tabs}>
-                    <button
-                        style={{ ...styles.tab, ...(activeTab === 'overview' ? styles.tabActive : {}) }}
-                        onClick={() => setActiveTab('overview')}
-                    >
-                        📈 Overview
-                    </button>
-                    <button
-                        style={{ ...styles.tab, ...(activeTab === 'plagiarism' ? styles.tabActive : {}) }}
-                        onClick={() => setActiveTab('plagiarism')}
-                    >
-                        🔍 Plagiarism
-                    </button>
-                    <button
-                        style={{ ...styles.tab, ...(activeTab === 'activity' ? styles.tabActive : {}) }}
-                        onClick={() => setActiveTab('activity')}
-                    >
-                        👥 Activity
-                    </button>
-                    <button
-                        style={{ ...styles.tab, ...(activeTab === 'trends' ? styles.tabActive : {}) }}
-                        onClick={() => setActiveTab('trends')}
-                    >
-                        📉 Trends
-                    </button>
-                </div>
-            </div>
+  if (loading || !analytics) return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0ea5e9 0%, #0891b2 50%, #14b8a6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px', animation: 'spin 1s linear infinite' }}>📈</div>
+        <p style={{ fontSize: '18px' }}>Loading analytics...</p>
+      </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
-            {/* Overview Tab */}
-            {activeTab === 'overview' && (
-                <div style={styles.content}>
-                    <h2 style={styles.chartTitle}>System Overview</h2>
-                    <div style={styles.statsGrid}>
-                        <div style={styles.statCard}>
-                            <div style={styles.statValue}>{analytics.overview.total_users}</div>
-                            <div style={styles.statLabel}>Total Users</div>
-                        </div>
-                        <div style={styles.statCard}>
-                            <div style={styles.statValue}>{analytics.overview.total_students}</div>
-                            <div style={styles.statLabel}>Students</div>
-                        </div>
-                        <div style={styles.statCard}>
-                            <div style={styles.statValue}>{analytics.overview.total_lecturers}</div>
-                            <div style={styles.statLabel}>Lecturers</div>
-                        </div>
-                        <div style={styles.statCard}>
-                            <div style={styles.statValue}>{analytics.overview.total_classes}</div>
-                            <div style={styles.statLabel}>Classes</div>
-                        </div>
-                        <div style={styles.statCard}>
-                            <div style={styles.statValue}>{analytics.overview.total_submissions}</div>
-                            <div style={styles.statLabel}>Submissions</div>
-                        </div>
-                        <div style={styles.statCard}>
-                            <div style={styles.statValue}>{analytics.overview.total_evaluations}</div>
-                            <div style={styles.statLabel}>Evaluations</div>
-                        </div>
-                    </div>
+  const hourlyData = analytics.hourly_activity || [];
+  const maxHourly = Math.max(...hourlyData.map(h => h.count), 1);
 
-                    <div style={styles.chartContainer}>
-                        <h3 style={styles.chartTitle}>Most Active Classes</h3>
-                        <table style={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th style={styles.th}>Class Name</th>
-                                    <th style={styles.th}>Class Code</th>
-                                    <th style={styles.th}>Enrollments</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {analytics.most_active_classes.map((cls, idx) => (
-                                    <tr key={idx}>
-                                        <td style={styles.td}>{cls.class_name}</td>
-                                        <td style={styles.td}>{cls.class_code}</td>
-                                        <td style={styles.td}><strong>{cls.enrollments}</strong></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div style={styles.chartContainer}>
-                        <h3 style={styles.chartTitle}>Most Active Students</h3>
-                        <table style={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th style={styles.th}>Student Name</th>
-                                    <th style={styles.th}>Email</th>
-                                    <th style={styles.th}>Submissions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {analytics.most_active_students.map((student, idx) => (
-                                    <tr key={idx}>
-                                        <td style={styles.td}>{student.name}</td>
-                                        <td style={styles.td}>{student.email}</td>
-                                        <td style={styles.td}><strong>{student.submissions}</strong></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* Plagiarism Tab */}
-            {activeTab === 'plagiarism' && (
-                <div style={styles.content}>
-                    <h2 style={styles.chartTitle}>Plagiarism Analysis</h2>
-
-                    <div style={styles.pieChart}>
-                        <div style={{ ...styles.pieSegment, background: '#fee' }}>
-                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#c00' }}>
-                                {analytics.plagiarism_stats.high_risk}
-                            </div>
-                            <div style={{ color: '#c00', fontWeight: '600' }}>High Risk (70%+)</div>
-                        </div>
-                        <div style={{ ...styles.pieSegment, background: '#fff3cd' }}>
-                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#856404' }}>
-                                {analytics.plagiarism_stats.medium_risk}
-                            </div>
-                            <div style={{ color: '#856404', fontWeight: '600' }}>Medium (40-70%)</div>
-                        </div>
-                        <div style={{ ...styles.pieSegment, background: '#d4edda' }}>
-                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#155724' }}>
-                                {analytics.plagiarism_stats.low_risk}
-                            </div>
-                            <div style={{ color: '#155724', fontWeight: '600' }}>Low Risk (&lt;40%)</div>
-                        </div>
-                    </div>
-
-                    <div style={styles.chartContainer}>
-                        <h3 style={styles.chartTitle}>Recent High-Risk Submissions</h3>
-                        <table style={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th style={styles.th}>Student</th>
-                                    <th style={styles.th}>Class</th>
-                                    <th style={styles.th}>Similarity</th>
-                                    <th style={styles.th}>Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {analytics.high_risk_submissions.length > 0 ? (
-                                    analytics.high_risk_submissions.map((sub, idx) => (
-                                        <tr key={idx}>
-                                            <td style={styles.td}>{sub.student_name}</td>
-                                            <td style={styles.td}>{sub.class_name}</td>
-                                            <td style={styles.td}>
-                                                <span style={styles.badgeHigh}>{sub.similarity.toFixed(1)}%</span>
-                                            </td>
-                                            <td style={styles.td}>{sub.date ? new Date(sub.date).toLocaleDateString() : 'N/A'}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="4" style={{ ...styles.td, textAlign: 'center', color: '#999' }}>
-                                            No high-risk submissions found
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div style={styles.chartContainer}>
-                        <h3 style={styles.chartTitle}>Plagiarism Trends (Last 30 Days)</h3>
-                        <div style={styles.lineChart}>
-                            {analytics.plagiarism_trends.length > 0 ? (
-                                analytics.plagiarism_trends.map((trend, idx) => (
-                                    <div
-                                        key={idx}
-                                        style={{
-                                            ...styles.linePoint,
-                                            height: `${(trend.similarity / 100) * 100}%`,
-                                            minHeight: '30px',
-                                        }}
-                                    >
-                                        <span>{trend.similarity.toFixed(0)}%</span>
-                                        <span style={{ fontSize: '0.6rem' }}>{new Date(trend.date).getDate()}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <div style={{ textAlign: 'center', width: '100%', padding: '20px', color: '#999' }}>
-                                    No plagiarism data available
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Activity Tab */}
-            {activeTab === 'activity' && (
-                <div style={styles.content}>
-                    <h2 style={styles.chartTitle}>System Activity</h2>
-
-                    <div style={styles.chartContainer}>
-                        <h3 style={styles.chartTitle}>Submission Trends (Last 7 Days)</h3>
-                        <div style={styles.barChart}>
-                            {analytics.submission_trends.length > 0 ? (
-                                analytics.submission_trends.map((day, idx) => (
-                                    <div
-                                        key={idx}
-                                        style={{
-                                            ...styles.bar,
-                                            height: `${(day.count / maxSubmissions) * 100}%`,
-                                        }}
-                                    >
-                                        <span>{day.count}</span>
-                                        <span style={{ fontSize: '0.7rem' }}>{new Date(day.date).getDate()}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <div style={{ textAlign: 'center', width: '100%', padding: '20px', color: '#999' }}>
-                                    No submission data available
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div style={styles.chartContainer}>
-                        <h3 style={styles.chartTitle}>📊 Peak Usage Hours - Submission Activity by Hour</h3>
-                        <div style={styles.hourlyChart}>
-                            <div style={styles.yAxisLabel}>Number of Submissions</div>
-                            <div style={styles.hourlyChartInner}>
-                                {analytics.peak_hours.length > 0 ? (
-                                    analytics.peak_hours.map((hour, idx) => {
-                                        const heightPercent = maxHourly > 0 ? (hour.count / maxHourly) * 100 : 10;
-                                        return (
-                                            <div
-                                                key={idx}
-                                                style={{
-                                                    ...styles.hourBar,
-                                                    height: `${Math.max(heightPercent, 10)}%`,
-                                                }}
-                                                title={`${hour.hour}:00 - ${hour.count} submissions`}
-                                                onMouseOver={(e) => e.currentTarget.style.transform = 'scaleY(1.05)'}
-                                                onMouseOut={(e) => e.currentTarget.style.transform = 'scaleY(1)'}
-                                            >
-                                                <span style={{ marginBottom: '5px' }}>{hour.count}</span>
-                                                <span style={styles.hourLabel}>{hour.hour}:00</span>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <div style={{ textAlign: 'center', width: '100%', padding: '50px', color: '#999' }}>
-                                        No activity data available yet
-                                    </div>
-                                )}
-                            </div>
-                            <div style={styles.xAxisLabel}>Time of Day (24-hour format)</div>
-                        </div>
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-around',
-                            marginTop: '20px',
-                            padding: '15px',
-                            background: 'linear-gradient(135deg, #667eea22 0%, #764ba222 100%)',
-                            borderRadius: '8px',
-                        }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#667eea' }}>
-                                    {analytics.peak_hours.length > 0
-                                        ? analytics.peak_hours.reduce((max, h) => h.count > max.count ? h : max, { hour: 0, count: 0 }).hour
-                                        : '-'}:00
-                                </div>
-                                <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '5px' }}>Peak Hour</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#764ba2' }}>
-                                    {analytics.peak_hours.length > 0
-                                        ? analytics.peak_hours.reduce((max, h) => h.count > max.count ? h : max, { hour: 0, count: 0 }).count
-                                        : 0}
-                                </div>
-                                <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '5px' }}>Max Submissions</div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#667eea' }}>
-                                    {analytics.peak_hours.length > 0
-                                        ? analytics.peak_hours.reduce((sum, h) => sum + h.count, 0)
-                                        : 0}
-                                </div>
-                                <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '5px' }}>Total Submissions</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Trends Tab */}
-            {activeTab === 'trends' && (
-                <div style={styles.content}>
-                    <h2 style={styles.chartTitle}>Historical Trends</h2>
-
-                    <div style={styles.chartContainer}>
-                        <h3 style={styles.chartTitle}>Submission Patterns</h3>
-                        <div style={styles.statsGrid}>
-                            <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' }}>
-                                <div style={styles.statValue}>
-                                    {analytics.submission_trends.reduce((sum, day) => sum + day.count, 0)}
-                                </div>
-                                <div style={styles.statLabel}>Weekly Submissions</div>
-                            </div>
-                            <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #eb3349 0%, #f45c43 100%)' }}>
-                                <div style={styles.statValue}>
-                                    {analytics.plagiarism_trends.length > 0
-                                        ? (analytics.plagiarism_trends.reduce((sum, t) => sum + t.similarity, 0) / analytics.plagiarism_trends.length).toFixed(1)
-                                        : '0'}%
-                                </div>
-                                <div style={styles.statLabel}>Avg Similarity</div>
-                            </div>
-                            <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
-                                <div style={styles.statValue}>
-                                    {analytics.peak_hours.length > 0
-                                        ? analytics.peak_hours.reduce((max, h) => h.count > max.count ? h : max, { hour: 0, count: 0 }).hour
-                                        : '0'}h
-                                </div>
-                                <div style={styles.statLabel}>Peak Hour</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={styles.chartContainer}>
-                        <h3 style={styles.chartTitle}>Key Insights</h3>
-                        <div style={{ padding: '20px', background: '#f8f9fa', borderRadius: '8px' }}>
-                            <ul style={{ lineHeight: '2', color: '#555' }}>
-                                <li>📊 <strong>{analytics.overview.total_submissions}</strong> total submissions processed</li>
-                                <li>🎓 <strong>{analytics.overview.total_students}</strong> active students in the system</li>
-                                <li>📚 <strong>{analytics.overview.total_classes}</strong> classes currently running</li>
-                                <li>🔍 <strong>{analytics.plagiarism_stats.high_risk}</strong> high-risk plagiarism cases detected</li>
-                                <li>⚠️ Average plagiarism rate: <strong>
-                                    {analytics.plagiarism_trends.length > 0
-                                        ? (analytics.plagiarism_trends.reduce((sum, t) => sum + t.similarity, 0) / analytics.plagiarism_trends.length).toFixed(1)
-                                        : '0'}%
-                                </strong></li>
-                                <li>⏰ Peak usage time: <strong>
-                                    {analytics.peak_hours.length > 0
-                                        ? `${analytics.peak_hours.reduce((max, h) => h.count > max.count ? h : max, { hour: 0, count: 0 }).hour}:00`
-                                        : 'N/A'}
-                                </strong></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            )}
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0ea5e9 0%, #0891b2 50%, #14b8a6 100%)' }}>
+      {/* Modern Navbar */}
+      <nav style={{ background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)', padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '32px' }}>📈</span>
+          <span style={{ fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Analytics</span>
         </div>
-    );
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {[
+            { icon: '📊', label: 'Dashboard', path: '/admin/dashboard' },
+            { icon: '👥', label: 'User Management', path: '/admin/user-management' },
+            { icon: '⏳', label: 'Pending Approvals', path: '/admin/pending-users' }
+          ].map((item, i) => (
+            <button
+              key={i}
+              onClick={() => navigate(item.path)}
+              style={{ padding: '10px 20px', border: 'none', borderRadius: '10px', background: 'transparent', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', gap: '8px' }}
+              onMouseEnter={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#0ea5e9'; }}
+              onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#64748b'; }}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={handleLogout}
+          style={{ padding: '10px 20px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease' }}
+          onMouseEnter={(e) => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.4)'; }}
+          onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+        >
+          Logout
+        </button>
+      </nav>
+
+      {/* Content */}
+      <div style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
+        {/* Header with Export */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <div>
+            <h1 style={{ fontSize: '42px', fontWeight: '800', color: 'white', marginBottom: '8px', textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>System Analytics</h1>
+            <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.9)' }}>Comprehensive system insights and metrics</p>
+          </div>
+          <button
+            onClick={exportToCSV}
+            style={{ padding: '14px 28px', border: 'none', borderRadius: '12px', background: 'white', color: '#0ea5e9', fontSize: '15px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 8px 20px rgba(0,0,0,0.1)' }}
+            onMouseEnter={(e) => { e.target.style.transform = 'translateY(-4px)'; e.target.style.boxShadow = '0 12px 30px rgba(0,0,0,0.15)'; }}
+            onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = '0 8px 20px rgba(0,0,0,0.1)'; }}
+          >
+            <span>📥</span>
+            <span>Export to CSV</span>
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
+          {[
+            { id: 'overview', label: 'Overview', icon: '📊' },
+            { id: 'plagiarism', label: 'Plagiarism', icon: '🔍' },
+            { id: 'activity', label: 'Activity', icon: '⚡' },
+            { id: 'trends', label: 'Trends', icon: '📈' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{ padding: '16px 28px', border: 'none', borderRadius: '12px', background: activeTab === tab.id ? 'white' : 'rgba(255,255,255,0.2)', color: activeTab === tab.id ? '#0ea5e9' : 'white', fontSize: '16px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: activeTab === tab.id ? '0 8px 20px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
+              onMouseEnter={(e) => { if (activeTab !== tab.id) e.target.style.background = 'rgba(255,255,255,0.3)'; }}
+              onMouseLeave={(e) => { if (activeTab !== tab.id) e.target.style.background = 'rgba(255,255,255,0.2)'; }}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+              {[
+                { label: 'Total Users', value: analytics.overview.total_users, icon: '👥', color: '#0ea5e9', bg: '#e0f2fe' },
+                { label: 'Students', value: analytics.overview.total_students, icon: '🎓', color: '#0891b2', bg: '#cffafe' },
+                { label: 'Lecturers', value: analytics.overview.total_lecturers, icon: '👨‍🏫', color: '#14b8a6', bg: '#ccfbf1' },
+                { label: 'Classes', value: analytics.overview.total_classes, icon: '📚', color: '#f59e0b', bg: '#fef3c7' },
+                { label: 'Submissions', value: analytics.overview.total_submissions, icon: '📝', color: '#10b981', bg: '#d1fae5' },
+                { label: 'Evaluations', value: analytics.overview.total_evaluations, icon: '⭐', color: '#0891b2', bg: '#cffafe' }
+              ].map((stat, i) => (
+                <div
+                  key={i}
+                  style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', transition: 'all 0.3s ease', border: '2px solid transparent' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = stat.color; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'transparent'; }}
+                >
+                  <div style={{ padding: '10px', borderRadius: '10px', background: stat.bg, fontSize: '28px', marginBottom: '12px', width: 'fit-content' }}>{stat.icon}</div>
+                  <div style={{ fontSize: '32px', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>{stat.value}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Plagiarism Tab */}
+        {activeTab === 'plagiarism' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span>🔍</span>
+                <span>Plagiarism Statistics</span>
+              </h2>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {[
+                  { label: 'High Risk (70%+)', value: analytics.plagiarism_stats?.high_risk || 0, color: '#ef4444', bg: '#fee2e2' },
+                  { label: 'Medium Risk (40-70%)', value: analytics.plagiarism_stats?.medium_risk || 0, color: '#f59e0b', bg: '#fef3c7' },
+                  { label: 'Low Risk (<40%)', value: analytics.plagiarism_stats?.low_risk || 0, color: '#10b981', bg: '#d1fae5' }
+                ].map((item, i) => {
+                  const total = (analytics.plagiarism_stats?.high_risk || 0) + (analytics.plagiarism_stats?.medium_risk || 0) + (analytics.plagiarism_stats?.low_risk || 0);
+                  const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
+
+                  return (
+                    <div key={i} style={{ padding: '20px', borderRadius: '12px', background: item.bg, border: `2px solid ${item.color}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>{item.label}</span>
+                        <span style={{ fontSize: '24px', fontWeight: '800', color: item.color }}>{item.value}</span>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${percentage}%`, height: '100%', background: item.color, transition: 'width 0.5s ease' }} />
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px', fontWeight: '600' }}>{percentage}% of total</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span>📊</span>
+                <span>Detection Summary</span>
+              </h2>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ padding: '24px', borderRadius: '12px', background: '#f8fafc', border: '2px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '42px', fontWeight: '800', color: '#0ea5e9', marginBottom: '8px' }}>
+                    {((analytics.plagiarism_stats?.high_risk || 0) + (analytics.plagiarism_stats?.medium_risk || 0) + (analytics.plagiarism_stats?.low_risk || 0))}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#64748b', fontWeight: '600' }}>Total Plagiarism Checks</div>
+                </div>
+
+                <div style={{ padding: '24px', borderRadius: '12px', background: '#fee2e2', border: '2px solid #ef4444' }}>
+                  <div style={{ fontSize: '42px', fontWeight: '800', color: '#ef4444', marginBottom: '8px' }}>
+                    {analytics.plagiarism_stats?.high_risk || 0}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#991b1b', fontWeight: '600' }}>Require Attention</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Activity Tab */}
+        {activeTab === 'activity' && (
+          <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span>⚡</span>
+              <span>Hourly Activity (Last 24 Hours)</span>
+            </h2>
+            
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', height: '300px', padding: '20px 0' }}>
+              {hourlyData.map((item, i) => {
+                const height = (item.count / maxHourly) * 100;
+                
+                return (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                      {item.count}
+                    </div>
+                    <div
+                      style={{ width: '100%', background: 'linear-gradient(180deg, #0ea5e9, #0891b2)', borderRadius: '4px 4px 0 0', height: `${height}%`, minHeight: '4px', transition: 'all 0.3s ease', cursor: 'pointer' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.2)'; e.currentTarget.style.transform = 'scaleY(1.05)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.transform = 'scaleY(1)'; }}
+                      title={`${item.hour}:00 - ${item.count} activities`}
+                    />
+                    <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', transform: 'rotate(-45deg)', width: '30px' }}>
+                      {item.hour}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Trends Tab */}
+        {activeTab === 'trends' && (
+          <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span>📈</span>
+              <span>System Trends</span>
+            </h2>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+              {[
+                { label: 'User Growth', value: '+12%', icon: '📈', trend: 'up', color: '#10b981' },
+                { label: 'Submission Rate', value: '+8%', icon: '📝', trend: 'up', color: '#10b981' },
+                { label: 'Active Classes', value: '+5%', icon: '📚', trend: 'up', color: '#10b981' },
+                { label: 'Avg Evaluation Time', value: '-15%', icon: '⏱️', trend: 'down', color: '#10b981' },
+                { label: 'Plagiarism Detection', value: '98%', icon: '🔍', trend: 'stable', color: '#0ea5e9' },
+                { label: 'System Uptime', value: '99.9%', icon: '✅', trend: 'stable', color: '#0ea5e9' }
+              ].map((trend, i) => (
+                <div
+                  key={i}
+                  style={{ padding: '24px', borderRadius: '12px', background: '#f8fafc', border: '2px solid #e2e8f0', transition: 'all 0.3s ease' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = trend.color; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                >
+                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>{trend.icon}</div>
+                  <div style={{ fontSize: '28px', fontWeight: '800', color: trend.color, marginBottom: '4px' }}>{trend.value}</div>
+                  <div style={{ fontSize: '14px', color: '#64748b', fontWeight: '600' }}>{trend.label}</div>
+                  {trend.trend === 'up' && <div style={{ fontSize: '12px', color: '#10b981', marginTop: '8px', fontWeight: '700' }}>↗ Trending Up</div>}
+                  {trend.trend === 'down' && <div style={{ fontSize: '12px', color: '#10b981', marginTop: '8px', fontWeight: '700' }}>↘ Improving</div>}
+                  {trend.trend === 'stable' && <div style={{ fontSize: '12px', color: '#0ea5e9', marginTop: '8px', fontWeight: '700' }}>→ Stable</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; borderRadius: 10px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #0ea5e9, #0891b2); borderRadius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #0284c7, #0891b2); }
+      `}</style>
+    </div>
+  );
 }

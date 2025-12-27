@@ -16,6 +16,7 @@ import Analytics from './My_FYP/Analytics';
 import Contact from './My_FYP/Contact';
 import SubmissionsPage from './My_FYP/SubmissionsPage';
 import NotificationsPage from './My_FYP/NotificationsPage';
+import UploadAssignmentPage from './My_FYP/UploadAssignmentPage';
 
 
 
@@ -29,7 +30,9 @@ function App() {
         <Route path="/userpage" element={<UserPage />} />
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/class/:classId" element={<ClassDetailPage />} />
+        <Route path="/class/:classId/upload" element={<UploadAssignmentPage />} />
         <Route path="/class/:classId/assignment/:assignmentId" element={<AssignmentDetailPage />} />
+        <Route path="/class/:classId/submission/:submissionId" element={<AssignmentDetailPage />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/submissions" element={<SubmissionsPage />} />

@@ -12,6 +12,13 @@ export default function ClassesPage() {
   const [selectedClass, setSelectedClass] = useState(null);
   const [activeTab, setActiveTab] = useState('enrolled');
   const [loading, setLoading] = useState(true);
+  const [showEnrollOptions, setShowEnrollOptions] = useState(false);
+  const [enrollmentCode, setEnrollmentCode] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateClassModal, setShowCreateClassModal] = useState(false);
+  const [newClassName, setNewClassName] = useState('');
+  const [newClassDescription, setNewClassDescription] = useState('');
+  const [creatingClass, setCreatingClass] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -104,10 +111,84 @@ export default function ClassesPage() {
     }
   };
 
+  const handleEnrollByCode = async () => {
+    if (!enrollmentCode.trim()) {
+      alert('❌ Please enter an enrollment code');
+      return;
+    }
+
+    const token = localStorage.getItem('access_token');
+    try {
+      const res = await fetch(`${API_BASE}/class/enroll-by-code/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(enrollmentCode.trim())
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        alert(`✅ ${data.msg}`);
+        setShowEnrollOptions(false);
+        setEnrollmentCode('');
+        fetchClasses(token, user.user_id, user.role);
+      } else {
+        const error = await res.json();
+        alert(`❌ ${error.detail || 'Enrollment failed'}`);
+      }
+    } catch (error) {
+      alert('❌ Failed to enroll in class');
+    }
+  };
+
+  const handleCreateClass = async () => {
+    if (!newClassName.trim()) {
+      alert('❌ Please enter a class name');
+      return;
+    }
+
+    setCreatingClass(true);
+    const token = localStorage.getItem('access_token');
+    try {
+      const res = await fetch(`${API_BASE}/class/create/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          class_name: newClassName.trim(),
+          description: newClassDescription.trim() || null
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        alert(`✅ Class "${newClassName}" created successfully!`);
+        setShowCreateClassModal(false);
+        setNewClassName('');
+        setNewClassDescription('');
+        fetchClasses(token, user.user_id, user.role);
+      } else {
+        const error = await res.json();
+        alert(`❌ ${error.detail || 'Failed to create class'}`);
+      }
+    } catch (error) {
+      console.error('Error creating class:', error);
+      alert('❌ Failed to create class');
+    } finally {
+      setCreatingClass(false);
+    }
+  };
+
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-    navigate('/');
+    // Clear all session data
+    localStorage.clear();
+    sessionStorage.clear();
+    // Navigate to home page with replace
+    navigate('/', { replace: true });
   };
 
   if (!user) return <div style={styles.loadingContainer}>Loading...</div>;
@@ -121,7 +202,7 @@ export default function ClassesPage() {
             <span style={styles.logoIcon}>🎓</span>
             <span style={styles.logoText}>AAAS</span>
           </div>
-          
+
           <div style={styles.navLinks}>
             <button
               onClick={() => navigate('/userpage')}
@@ -181,7 +262,7 @@ export default function ClassesPage() {
           </div>
           {user.role === 'student' && (
             <button
-              onClick={() => setActiveTab('available')}
+              onClick={() => setShowEnrollOptions(true)}
               style={styles.enrollButton}
               onMouseEnter={(e) => {
                 e.target.style.transform = 'translateY(-2px)';
@@ -193,6 +274,22 @@ export default function ClassesPage() {
               }}
             >
               <span>➕ Enroll in Class</span>
+            </button>
+          )}
+          {user.role === 'lecturer' && (
+            <button
+              onClick={() => setShowCreateClassModal(true)}
+              style={styles.enrollButton}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 12px 28px rgba(16,185,129,0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 8px 20px rgba(16,185,129,0.3)';
+              }}
+            >
+              <span>➕ Create Class</span>
             </button>
           )}
         </div>
@@ -230,7 +327,7 @@ export default function ClassesPage() {
                     <div style={styles.emptyIcon}>📚</div>
                     <h3 style={styles.emptyTitle}>No classes found</h3>
                     <p style={styles.emptyText}>
-                      {user.role === 'student' 
+                      {user.role === 'student'
                         ? 'Enroll in a class to begin your learning journey!'
                         : 'Create a class to start teaching!'}
                     </p>
@@ -252,7 +349,9 @@ export default function ClassesPage() {
                     >
                       <div style={styles.classCardHeader}>
                         <div style={styles.classIcon}>📘</div>
-                        <div style={styles.classStatus}>{classItem.enrollment_status === 'approved' ? 'Active' : 'Pending'}</div>
+                        {user.role === 'student' && (
+                          <div style={styles.classStatus}>{classItem.enrollment_status === 'approved' ? 'Active' : 'Pending'}</div>
+                        )}
                       </div>
                       <h3 style={styles.className}>{classItem.class_name}</h3>
                       <p style={styles.classDescription}>{classItem.description || 'No description available'}</p>
@@ -263,7 +362,7 @@ export default function ClassesPage() {
                         </div>
                         <div style={styles.classInfo}>
                           <span style={styles.classInfoIcon}>👥</span>
-                          <span>{classItem.student_count || 0} students</span>
+                          <span>{classItem.student_count || 0} {classItem.student_count === 1 ? 'student' : 'students'}</span>
                         </div>
                       </div>
                     </div>
@@ -273,49 +372,78 @@ export default function ClassesPage() {
             )}
 
             {activeTab === 'available' && user.role === 'student' && (
-              <div style={styles.classesGrid}>
-                {availableClasses.length === 0 ? (
-                  <div style={styles.emptyState}>
-                    <div style={styles.emptyIcon}>✅</div>
-                    <h3 style={styles.emptyTitle}>All caught up!</h3>
-                    <p style={styles.emptyText}>You've enrolled in all available classes</p>
-                  </div>
-                ) : (
-                  availableClasses.map((classItem) => (
-                    <div key={classItem.class_id} style={styles.classCard}>
-                      <div style={styles.classCardHeader}>
-                        <div style={styles.classIcon}>📗</div>
-                        <div style={styles.availableBadge}>Available</div>
-                      </div>
-                      <h3 style={styles.className}>{classItem.name}</h3>
-                      <p style={styles.classDescription}>{classItem.description || 'No description available'}</p>
-                      <div style={styles.classFooter}>
-                        <div style={styles.classInfo}>
-                          <span style={styles.classInfoIcon}>👤</span>
-                          <span>{classItem.lecturer_name || 'Instructor'}</span>
-                        </div>
-                        <div style={styles.classInfo}>
-                          <span style={styles.classInfoIcon}>👥</span>
-                          <span>{classItem.student_count || 0} students</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleEnroll(classItem)}
-                        style={styles.enrollClassButton}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                          e.target.style.transform = 'translateY(-2px)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)';
-                          e.target.style.transform = 'translateY(0)';
-                        }}
-                      >
-                        Enroll Now →
-                      </button>
+              <div>
+                {/* Search Bar */}
+                <div style={styles.searchContainer}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search classes by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={styles.searchInput}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      style={styles.clearSearchBtn}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div style={styles.classesGrid}>
+                  {availableClasses.filter(cls =>
+                    cls.class_name.toLowerCase().includes(searchQuery.toLowerCase())
+                  ).length === 0 ? (
+                    <div style={styles.emptyState}>
+                      <div style={styles.emptyIcon}>🔍</div>
+                      <h3 style={styles.emptyTitle}>
+                        {searchQuery ? 'No classes found' : 'All caught up!'}
+                      </h3>
+                      <p style={styles.emptyText}>
+                        {searchQuery ? `No classes match "${searchQuery}"` : "You've enrolled in all available classes"}
+                      </p>
                     </div>
-                  ))
-                )}
+                  ) : (
+                    availableClasses
+                      .filter(cls => cls.class_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map((classItem) => (
+                        <div key={classItem.class_id} style={styles.classCard}>
+                          <div style={styles.classCardHeader}>
+                            <div style={styles.classIcon}>📗</div>
+                            <div style={styles.availableBadge}>Available</div>
+                          </div>
+                          <h3 style={styles.className}>{classItem.class_name}</h3>
+                          <p style={styles.classDescription}>{classItem.description || 'No description available'}</p>
+                          <div style={styles.classFooter}>
+                            <div style={styles.classInfo}>
+                              <span style={styles.classInfoIcon}>👤</span>
+                              <span>{classItem.lecturer_name || 'Instructor'}</span>
+                            </div>
+                            <div style={styles.classInfo}>
+                              <span style={styles.classInfoIcon}>👥</span>
+                              <span>{classItem.student_count || 0} {classItem.student_count === 1 ? 'student' : 'students'}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleEnroll(classItem)}
+                            style={styles.enrollClassButton}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                              e.target.style.transform = 'translateY(-2px)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)';
+                              e.target.style.transform = 'translateY(0)';
+                            }}
+                          >
+                            Enroll Now →
+                          </button>
+                        </div>
+                      ))
+                  )}
+                </div>
               </div>
             )}
           </>
@@ -326,7 +454,7 @@ export default function ClassesPage() {
       {showEnrollModal && (
         <div style={styles.modalOverlay} onClick={() => setShowEnrollModal(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Enroll in {selectedClass?.name}?</h2>
+            <h2 style={styles.modalTitle}>Enroll in {selectedClass?.class_name}?</h2>
             <p style={styles.modalText}>
               You're about to request enrollment in this class. The lecturer will review your request.
             </p>
@@ -347,6 +475,119 @@ export default function ClassesPage() {
           </div>
         </div>
       )}
+
+      {/* Enrollment Options Modal */}
+      {showEnrollOptions && (
+        <div style={styles.modalOverlay} onClick={() => setShowEnrollOptions(false)}>
+          <div style={styles.enrollOptionsModal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>📚 Enroll in a Class</h2>
+            <p style={styles.modalText}>Choose how you want to enroll:</p>
+
+            {/* Option 1: Browse Classes */}
+            <div
+              style={styles.enrollOption}
+              onClick={() => {
+                setShowEnrollOptions(false);
+                setActiveTab('available');
+              }}
+            >
+              <div style={styles.enrollOptionIcon}>🔍</div>
+              <div>
+                <h3 style={styles.enrollOptionTitle}>Browse Classes</h3>
+                <p style={styles.enrollOptionText}>Search and browse available classes by name</p>
+              </div>
+              <div style={styles.enrollOptionArrow}>→</div>
+            </div>
+
+            {/* Option 2: Enrollment Code */}
+            <div style={styles.enrollOption}>
+              <div style={styles.enrollOptionIcon}>🔑</div>
+              <div style={{ flex: 1 }}>
+                <h3 style={styles.enrollOptionTitle}>Use Enrollment Code</h3>
+                <p style={styles.enrollOptionText}>Enter the code provided by your lecturer</p>
+                <div style={styles.codeInputContainer}>
+                  <input
+                    type="text"
+                    placeholder="Enter code (e.g., ENROLL-123)"
+                    value={enrollmentCode}
+                    onChange={(e) => setEnrollmentCode(e.target.value)}
+                    style={styles.codeInput}
+                    onKeyPress={(e) => e.key === 'Enter' && handleEnrollByCode()}
+                  />
+                  <button
+                    onClick={handleEnrollByCode}
+                    style={styles.submitCodeBtn}
+                    disabled={!enrollmentCode.trim()}
+                  >
+                    Enroll
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowEnrollOptions(false)}
+              style={styles.closeOptionsBtn}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create Class Modal */}
+      {showCreateClassModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowCreateClassModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.modalTitle}>➕ Create New Class</h2>
+            <p style={styles.modalText}>Fill in the details to create a new class</p>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={styles.inputLabel}>Class Name *</label>
+              <input
+                type="text"
+                placeholder="e.g., Internet of Things"
+                value={newClassName}
+                onChange={(e) => setNewClassName(e.target.value)}
+                style={styles.textInput}
+                maxLength={100}
+              />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={styles.inputLabel}>Description (Optional)</label>
+              <textarea
+                placeholder="Brief description of the class..."
+                value={newClassDescription}
+                onChange={(e) => setNewClassDescription(e.target.value)}
+                style={{ ...styles.textInput, minHeight: '100px', resize: 'vertical' }}
+                maxLength={500}
+              />
+            </div>
+
+            <div style={styles.modalActions}>
+              <button
+                onClick={() => {
+                  setShowCreateClassModal(false);
+                  setNewClassName('');
+                  setNewClassDescription('');
+                }}
+                style={styles.cancelButton}
+                disabled={creatingClass}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateClass}
+                style={styles.confirmButton}
+                disabled={creatingClass || !newClassName.trim()}
+              >
+                {creatingClass ? 'Creating...' : 'Create Class'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -357,7 +598,7 @@ const styles = {
     background: '#f8fafc',
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
-  
+
   loadingContainer: {
     display: 'flex',
     justifyContent: 'center',
@@ -705,6 +946,135 @@ const styles = {
     fontWeight: '700',
     fontSize: '0.95rem',
     cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  inputLabel: {
+    display: 'block',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: '8px',
+  },
+  textInput: {
+    width: '100%',
+    padding: '12px 16px',
+    fontSize: '1rem',
+    border: '2px solid #e5e7eb',
+    borderRadius: '10px',
+    fontFamily: 'inherit',
+    transition: 'all 0.2s ease',
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+
+  // Search Container
+  searchContainer: {
+    position: 'relative',
+    marginBottom: '32px',
+  },
+  searchInput: {
+    width: '100%',
+    padding: '16px 50px 16px 20px',
+    fontSize: '1rem',
+    border: '2px solid #e5e7eb',
+    borderRadius: '12px',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    fontFamily: "'Inter', sans-serif",
+  },
+  clearSearchBtn: {
+    position: 'absolute',
+    right: '16px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: '#ef4444',
+    color: 'white',
+    border: 'none',
+    borderRadius: '50%',
+    width: '24px',
+    height: '24px',
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Enrollment Options Modal
+  enrollOptionsModal: {
+    background: 'white',
+    padding: '40px',
+    borderRadius: '20px',
+    maxWidth: '600px',
+    width: '90%',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+  },
+  enrollOption: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
+    padding: '24px',
+    background: '#f8fafc',
+    border: '2px solid #e5e7eb',
+    borderRadius: '16px',
+    marginBottom: '16px',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+  },
+  enrollOptionIcon: {
+    fontSize: '2.5rem',
+  },
+  enrollOptionTitle: {
+    fontSize: '1.2rem',
+    fontWeight: '700',
+    color: '#0f172a',
+    margin: '0 0 4px 0',
+  },
+  enrollOptionText: {
+    fontSize: '0.9rem',
+    color: '#64748b',
+    margin: 0,
+  },
+  enrollOptionArrow: {
+    fontSize: '1.5rem',
+    color: '#0ea5e9',
+    fontWeight: '700',
+  },
+  codeInputContainer: {
+    display: 'flex',
+    gap: '12px',
+    marginTop: '16px',
+  },
+  codeInput: {
+    flex: 1,
+    padding: '12px 16px',
+    fontSize: '1rem',
+    border: '2px solid #e5e7eb',
+    borderRadius: '10px',
+    outline: 'none',
+    fontFamily: "'Inter', sans-serif",
+  },
+  submitCodeBtn: {
+    padding: '12px 24px',
+    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  closeOptionsBtn: {
+    width: '100%',
+    padding: '14px',
+    background: 'white',
+    border: '2px solid #e5e7eb',
+    borderRadius: '12px',
+    color: '#64748b',
+    fontWeight: '600',
+    fontSize: '1rem',
+    cursor: 'pointer',
+    marginTop: '8px',
     transition: 'all 0.2s ease',
   },
 };

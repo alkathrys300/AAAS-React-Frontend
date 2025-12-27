@@ -12,10 +12,8 @@ export default function AdminDashboard() {
     pending_approvals: 0
   });
   const [chartData, setChartData] = useState([]);
-  const [recentRegistrations, setRecentRegistrations] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchStatistics();
@@ -30,13 +28,10 @@ export default function AdminDashboard() {
 
       if (data.success) {
         setStatistics(data.statistics);
-        setChartData(data.chart_data);
-        setRecentRegistrations(data.recent_registrations);
-      } else {
-        setError('Failed to load statistics');
+        setChartData(data.chart_data || []);
       }
     } catch (err) {
-      setError('Error fetching statistics: ' + err.message);
+      console.error('Error fetching statistics:', err);
     } finally {
       setLoading(false);
     }
@@ -48,10 +43,10 @@ export default function AdminDashboard() {
       const data = await response.json();
 
       if (data.success) {
-        setRecentActivities(data.activities);
+        setRecentActivities(data.activities || []);
       }
     } catch (err) {
-      console.error('Error fetching recent activities:', err);
+      console.error('Error fetching activities:', err);
     }
   };
 
@@ -59,32 +54,24 @@ export default function AdminDashboard() {
     switch (type) {
       case 'registration': return '✨';
       case 'approval': return '✅';
-      case 'rejection': return '❌';
       case 'submission': return '📝';
-      case 'grade': return '⭐';
       case 'class_created': return '📚';
-      case 'enrollment': return '👥';
-      case 'login': return '🔐';
       default: return '📌';
     }
   };
 
   const getActivityColor = (type) => {
     switch (type) {
-      case 'registration': return '#667eea';
-      case 'approval': return '#4caf50';
-      case 'rejection': return '#f44336';
-      case 'submission': return '#2196f3';
-      case 'grade': return '#ff9800';
-      case 'class_created': return '#9c27b0';
-      case 'enrollment': return '#00bcd4';
-      default: return '#666';
+      case 'registration': return '#0ea5e9';
+      case 'approval': return '#10b981';
+      case 'submission': return '#f59e0b';
+      case 'class_created': return '#06b6d4';
+      default: return '#64748b';
     }
   };
 
   const formatTimeAgo = (dateString) => {
     if (!dateString) return 'Recently';
-
     const date = new Date(dateString);
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
@@ -92,419 +79,171 @@ export default function AdminDashboard() {
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
     return date.toLocaleDateString();
   };
 
-  const styles = {
-    container: {
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '20px',
-    },
-    header: {
-      background: 'white',
-      borderRadius: '15px',
-      padding: '20px 30px',
-      marginBottom: '20px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    title: {
-      fontSize: '2rem',
-      fontWeight: 'bold',
-      color: '#333',
-      margin: 0,
-    },
-    nav: {
-      display: 'flex',
-      gap: '15px',
-    },
-    navButton: {
-      padding: '10px 20px',
-      borderRadius: '8px',
-      border: 'none',
-      background: '#667eea',
-      color: 'white',
-      cursor: 'pointer',
-      fontSize: '1rem',
-      fontWeight: '600',
-      transition: 'all 0.3s ease',
-    },
-    cardsContainer: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-      gap: '20px',
-      marginBottom: '30px',
-    },
-    card: {
-      background: 'white',
-      borderRadius: '15px',
-      padding: '25px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-      transition: 'transform 0.3s ease',
-    },
-    cardHover: {
-      transform: 'translateY(-5px)',
-    },
-    cardTitle: {
-      fontSize: '0.9rem',
-      color: '#666',
-      marginBottom: '10px',
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px',
-    },
-    cardValue: {
-      fontSize: '2.5rem',
-      fontWeight: 'bold',
-      color: '#333',
-      marginBottom: '5px',
-    },
-    cardIcon: {
-      fontSize: '2rem',
-      marginBottom: '10px',
-    },
-    chartSection: {
-      background: 'white',
-      borderRadius: '15px',
-      padding: '30px',
-      marginBottom: '20px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    },
-    chartTitle: {
-      fontSize: '1.5rem',
-      fontWeight: 'bold',
-      color: '#333',
-      marginBottom: '20px',
-    },
-    barChart: {
-      display: 'flex',
-      alignItems: 'flex-end',
-      gap: '30px',
-      height: '300px',
-      padding: '20px',
-    },
-    bar: {
-      flex: 1,
-      background: 'linear-gradient(to top, #667eea, #764ba2)',
-      borderRadius: '10px 10px 0 0',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      color: 'white',
-      fontWeight: 'bold',
-      padding: '10px',
-      minHeight: '50px',
-      transition: 'all 0.3s ease',
-    },
-    barLabel: {
-      marginTop: '10px',
-      color: '#333',
-      fontSize: '1rem',
-      fontWeight: '600',
-      textTransform: 'capitalize',
-    },
-    recentSection: {
-      background: 'white',
-      borderRadius: '15px',
-      padding: '30px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    },
-    table: {
-      width: '100%',
-      borderCollapse: 'collapse',
-    },
-    th: {
-      textAlign: 'left',
-      padding: '12px',
-      borderBottom: '2px solid #f0f0f0',
-      color: '#666',
-      fontSize: '0.9rem',
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px',
-    },
-    td: {
-      padding: '12px',
-      borderBottom: '1px solid #f0f0f0',
-      color: '#333',
-    },
-    badge: {
-      padding: '5px 10px',
-      borderRadius: '20px',
-      fontSize: '0.85rem',
-      fontWeight: '600',
-    },
-    studentBadge: {
-      background: '#e3f2fd',
-      color: '#1976d2',
-    },
-    lecturerBadge: {
-      background: '#fff3e0',
-      color: '#f57c00',
-    },
-    error: {
-      background: '#fee',
-      color: '#c33',
-      padding: '15px',
-      borderRadius: '10px',
-      margin: '20px 0',
-    },
-    activityFeed: {
-      background: 'white',
-      borderRadius: '15px',
-      padding: '30px',
-      marginBottom: '20px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    },
-    activityItem: {
-      display: 'flex',
-      alignItems: 'start',
-      padding: '15px',
-      borderLeft: '3px solid #667eea',
-      marginBottom: '15px',
-      background: '#f9f9f9',
-      borderRadius: '8px',
-      transition: 'all 0.3s ease',
-    },
-    activityIcon: {
-      fontSize: '1.5rem',
-      marginRight: '15px',
-      minWidth: '40px',
-      height: '40px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: '50%',
-      background: 'white',
-    },
-    activityContent: {
-      flex: 1,
-    },
-    activityTitle: {
-      fontSize: '1rem',
-      fontWeight: '600',
-      color: '#333',
-      marginBottom: '5px',
-    },
-    activityDescription: {
-      fontSize: '0.9rem',
-      color: '#666',
-      marginBottom: '5px',
-    },
-    activityTime: {
-      fontSize: '0.8rem',
-      color: '#999',
-    },
-    gridLayout: {
-      display: 'grid',
-      gridTemplateColumns: '2fr 1fr',
-      gap: '20px',
-      marginBottom: '20px',
-    },
+  const handleLogout = () => {
+    // Clear all session data
+    localStorage.clear();
+    sessionStorage.clear();
+    // Navigate to home page with replace to prevent going back to dashboard
+    navigate('/', { replace: true });
   };
 
-  if (loading) {
-    return (
-      <div style={styles.container}>
-        <div style={{ ...styles.card, textAlign: 'center', marginTop: '100px' }}>
-          <p style={{ fontSize: '1.2rem', color: '#667eea' }}>Loading dashboard...</p>
-        </div>
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #14b8a6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px', animation: 'spin 1s linear infinite' }}>⚙️</div>
+        <p style={{ fontSize: '18px' }}>Loading dashboard...</p>
       </div>
-    );
-  }
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
-  const maxCount = Math.max(...chartData.map(d => d.count), 1);
+  const maxValue = Math.max(...chartData.map(d => d.count || 0), 1);
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>📊 Admin Dashboard</h1>
-        <div style={styles.nav}>
-          <button
-            style={styles.navButton}
-            onClick={() => navigate('/admin/user-management')}
-            onMouseOver={(e) => e.target.style.background = '#5568d3'}
-            onMouseOut={(e) => e.target.style.background = '#667eea'}
-          >
-            👥 User Management
-          </button>
-          <button
-            style={styles.navButton}
-            onClick={() => navigate('/admin/analytics')}
-            onMouseOver={(e) => e.target.style.background = '#5568d3'}
-            onMouseOut={(e) => e.target.style.background = '#667eea'}
-          >
-            📈 Analytics
-          </button>
-          <button
-            style={styles.navButton}
-            onClick={() => navigate('/admin/pending-users')}
-            onMouseOver={(e) => e.target.style.background = '#5568d3'}
-            onMouseOut={(e) => e.target.style.background = '#667eea'}
-          >
-            Pending Approvals ({statistics.pending_approvals})
-          </button>
-          <button
-            style={styles.navButton}
-            onClick={() => navigate('/')}
-            onMouseOver={(e) => e.target.style.background = '#5568d3'}
-            onMouseOut={(e) => e.target.style.background = '#667eea'}
-          >
-            Back to Home
-          </button>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #14b8a6 100%)' }}>
+      {/* Modern Navbar */}
+      <nav style={{ background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)', padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '32px' }}>📊</span>
+          <span style={{ fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Admin Dashboard</span>
         </div>
-      </div>
-
-      {error && <div style={styles.error}>{error}</div>}
-
-      {/* Statistics Cards */}
-      <div style={styles.cardsContainer}>
-        <div style={styles.card}>
-          <div style={styles.cardIcon}>👨‍🎓</div>
-          <div style={styles.cardTitle}>Total Students</div>
-          <div style={styles.cardValue}>{statistics.total_students}</div>
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {[
+            { icon: '👥', label: 'User Management', path: '/admin/user-management' },
+            { icon: '📈', label: 'Analytics', path: '/admin/analytics' },
+            { icon: '⏳', label: 'Pending Approvals', path: '/admin/pending-users' }
+          ].map((item, i) => (
+            <button
+              key={i}
+              onClick={() => navigate(item.path)}
+              style={{ padding: '10px 20px', border: 'none', borderRadius: '10px', background: 'transparent', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', gap: '8px' }}
+              onMouseEnter={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#0ea5e9'; }}
+              onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#64748b'; }}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
         </div>
 
-        <div style={styles.card}>
-          <div style={styles.cardIcon}>👨‍🏫</div>
-          <div style={styles.cardTitle}>Total Lecturers</div>
-          <div style={styles.cardValue}>{statistics.total_lecturers}</div>
-        </div>
+        <button
+          onClick={handleLogout}
+          style={{ padding: '10px 20px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease' }}
+          onMouseEnter={(e) => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.4)'; }}
+          onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+        >
+          Logout
+        </button>
+      </nav>
 
-        <div style={styles.card}>
-          <div style={styles.cardIcon}>📚</div>
-          <div style={styles.cardTitle}>Total Classes</div>
-          <div style={styles.cardValue}>{statistics.total_classes}</div>
-        </div>
-
-        <div style={styles.card}>
-          <div style={styles.cardIcon}>⏳</div>
-          <div style={styles.cardTitle}>Pending Approvals</div>
-          <div style={{ ...styles.cardValue, color: '#f57c00' }}>
-            {statistics.pending_approvals}
-          </div>
-        </div>
-      </div>
-
-      {/* Chart Section & Recent Activity Feed */}
-      <div style={styles.gridLayout}>
-        {/* Chart Section */}
-        <div style={styles.chartSection}>
-          <h2 style={styles.chartTitle}>User Distribution by Role</h2>
-          <div style={styles.barChart}>
-            {chartData.map((item, index) => (
-              <div key={index} style={{ flex: 1, textAlign: 'center' }}>
-                <div
-                  style={{
-                    ...styles.bar,
-                    height: `${(item.count / maxCount) * 250}px`,
-                  }}
-                >
-                  <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                    {item.count}
-                  </span>
+      {/* Content */}
+      <div style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
+        {/* Stats Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+          {[
+            { label: 'TOTAL STUDENTS', value: statistics.total_students, icon: '🎓', color: '#0ea5e9', bg: '#e0f2fe' },
+            { label: 'TOTAL LECTURERS', value: statistics.total_lecturers, icon: '👨‍🏫', color: '#06b6d4', bg: '#cffafe' },
+            { label: 'TOTAL CLASSES', value: statistics.total_classes, icon: '📚', color: '#14b8a6', bg: '#ccfbf1' },
+            { label: 'PENDING APPROVALS', value: statistics.pending_approvals, icon: '⏳', color: '#f59e0b', bg: '#fef3c7' }
+          ].map((stat, i) => (
+            <div
+              key={i}
+              style={{ background: 'white', borderRadius: '20px', padding: '28px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', transition: 'all 0.3s ease', border: '2px solid transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(0,0,0,0.15)'; e.currentTarget.style.borderColor = stat.color; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 40px rgba(0,0,0,0.1)'; e.currentTarget.style.borderColor = 'transparent'; }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+                <div style={{ padding: '12px', borderRadius: '12px', background: stat.bg, fontSize: '28px' }}>
+                  {stat.icon}
                 </div>
-                <div style={styles.barLabel}>{item.role}</div>
               </div>
-            ))}
-          </div>
-          {chartData.length === 0 && (
-            <p style={{ textAlign: 'center', color: '#999', padding: '40px' }}>
-              No data available yet
-            </p>
-          )}
+              <div style={{ fontSize: '42px', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>{stat.value}</div>
+              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.label}</div>
+            </div>
+          ))}
         </div>
 
-        {/* Recent Activity Feed */}
-        <div style={styles.activityFeed}>
-          <h2 style={styles.chartTitle}>📋 Recent Activity</h2>
-          <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '10px' }}>
-            {recentActivities.length > 0 ? (
-              recentActivities.map((activity, index) => (
-                <div
-                  key={index}
-                  style={{
-                    ...styles.activityItem,
-                    borderLeftColor: getActivityColor(activity.type),
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = '#f0f0f0';
-                    e.currentTarget.style.transform = 'translateX(5px)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = '#f9f9f9';
-                    e.currentTarget.style.transform = 'translateX(0)';
-                  }}
-                >
-                  <div style={{
-                    ...styles.activityIcon,
-                    background: getActivityColor(activity.type) + '20',
-                  }}>
-                    {getActivityIcon(activity.type)}
-                  </div>
-                  <div style={styles.activityContent}>
-                    <div style={styles.activityTitle}>{activity.title}</div>
-                    <div style={styles.activityDescription}>{activity.description}</div>
-                    <div style={styles.activityTime}>
-                      {formatTimeAgo(activity.timestamp)}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+          {/* User Distribution Chart */}
+          <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span>📊</span>
+              <span>User Distribution by Role</span>
+            </h2>
+            
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'space-around', alignItems: 'flex-end', height: '280px', padding: '20px 0' }}>
+              {chartData.map((item, i) => {
+                const colors = ['#0ea5e9', '#06b6d4', '#14b8a6'];
+                const height = (item.count / maxValue) * 100;
+                
+                return (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                    <div
+                      style={{ width: '100%', background: colors[i % 3], borderRadius: '12px 12px 0 0', height: `${height}%`, minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '24px', transition: 'all 0.3s ease', cursor: 'pointer' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = 'scaleY(1.05)'; e.currentTarget.style.filter = 'brightness(1.1)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scaleY(1)'; e.currentTarget.style.filter = 'brightness(1)'; }}
+                    >
+                      {item.count}
+                    </div>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#64748b', textAlign: 'center' }}>
+                      {item.role === 'student' ? 'Student' : item.role === 'lecturer' ? 'Lecturer' : 'Admin'}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span>📋</span>
+              <span>Recent Activity</span>
+            </h2>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '8px' }}>
+              {recentActivities.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
+                  <p style={{ fontSize: '14px', fontWeight: '600' }}>No recent activity</p>
                 </div>
-              ))
-            ) : (
-              <p style={{ textAlign: 'center', color: '#999', padding: '40px' }}>
-                No recent activities
-              </p>
-            )}
+              ) : (
+                recentActivities.map((activity, i) => (
+                  <div
+                    key={i}
+                    style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderRadius: '12px', background: '#f8fafc', border: `2px solid transparent`, borderLeftColor: getActivityColor(activity.type), borderLeftWidth: '4px', transition: 'all 0.3s ease' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.transform = 'translateX(4px)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.transform = 'translateX(0)'; }}
+                  >
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: getActivityColor(activity.type) + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      {getActivityIcon(activity.type)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {activity.description || activity.message}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>
+                        {formatTimeAgo(activity.created_at || activity.timestamp)}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Registrations */}
-      <div style={styles.recentSection}>
-        <h2 style={styles.chartTitle}>Recent Pending Registrations</h2>
-        {recentRegistrations.length > 0 ? (
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Name</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Role</th>
-                <th style={styles.th}>Joined At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentRegistrations.map((user) => (
-                <tr key={user.user_id}>
-                  <td style={styles.td}>{user.name}</td>
-                  <td style={styles.td}>{user.email}</td>
-                  <td style={styles.td}>
-                    <span
-                      style={{
-                        ...styles.badge,
-                        ...(user.role === 'student' ? styles.studentBadge : styles.lecturerBadge)
-                      }}
-                    >
-                      {user.role}
-                    </span>
-                  </td>
-                  <td style={styles.td}>
-                    {user.joined_at ? new Date(user.joined_at).toLocaleDateString() : 'N/A'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p style={{ textAlign: 'center', color: '#999', padding: '40px' }}>
-            No pending registrations
-          </p>
-        )}
-      </div>
+      <style>{`
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; borderRadius: 10px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #0ea5e9, #06b6d4); borderRadius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #0284c7, #0891b2); }
+      `}</style>
     </div>
   );
 }

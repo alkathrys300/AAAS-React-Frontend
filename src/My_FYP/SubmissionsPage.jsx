@@ -21,6 +21,14 @@ export default function SubmissionsPage() {
 
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
+
+        // Redirect lecturers to classes page
+        if (parsedUser.role === 'lecturer') {
+            alert('This page is for students only. Redirecting to Classes page where you can view all student submissions.');
+            navigate('/classes');
+            return;
+        }
+
         fetchSubmissions(token, parsedUser.user_id);
     }, [navigate]);
 
@@ -34,7 +42,62 @@ export default function SubmissionsPage() {
 
             if (response.ok) {
                 const data = await response.json();
-                setSubmissions(data.submissions || []);
+                const submissionsData = data.submissions || [];
+
+                // Fetch feedback for each submission to get score and status
+                const submissionsWithFeedback = await Promise.all(
+                    submissionsData.map(async (sub) => {
+                        try {
+                            const feedbackRes = await fetch(
+                                `${API_BASE}/assignment/${sub.script_id}/feedback`,
+                                {
+                                    headers: {
+                                        'Authorization': `Bearer ${token}`
+                                    }
+                                }
+                            );
+
+                            if (feedbackRes.ok) {
+                                const feedbackData = await feedbackRes.json();
+                                return {
+                                    ...sub,
+                                    evaluation: feedbackData.evaluation,
+                                    review_status: feedbackData.review_status,
+                                    final_score: feedbackData.final_score,
+                                    can_delete: !feedbackData.evaluation // Can delete if not evaluated
+                                };
+                            } else if (feedbackRes.status === 403) {
+                                // Pending evaluation
+                                return {
+                                    ...sub,
+                                    evaluation: null,
+                                    review_status: 'pending',
+                                    final_score: null,
+                                    can_delete: true
+                                };
+                            } else {
+                                return {
+                                    ...sub,
+                                    evaluation: null,
+                                    review_status: 'pending',
+                                    final_score: null,
+                                    can_delete: true
+                                };
+                            }
+                        } catch (err) {
+                            console.error(`Error fetching feedback for ${sub.script_id}:`, err);
+                            return {
+                                ...sub,
+                                evaluation: null,
+                                review_status: 'pending',
+                                final_score: null,
+                                can_delete: true
+                            };
+                        }
+                    })
+                );
+
+                setSubmissions(submissionsWithFeedback);
             } else {
                 console.error('Failed to fetch submissions');
             }
@@ -46,9 +109,11 @@ export default function SubmissionsPage() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-        navigate('/');
+        // Clear all session data
+        localStorage.clear();
+        sessionStorage.clear();
+        // Navigate to home page with replace
+        navigate('/', { replace: true });
     };
 
     const handleDelete = async (scriptId) => {
@@ -336,7 +401,7 @@ export default function SubmissionsPage() {
                         }}
                         onClick={() => setFilter('evaluated')}
                     >
-                        Evaluated ({submissions.filter(s => s.status === 'evaluated').length})
+                        Graded ({submissions.filter(s => s.review_status === 'approved').length})
                     </button>
                     <button
                         style={{
@@ -345,7 +410,7 @@ export default function SubmissionsPage() {
                         }}
                         onClick={() => setFilter('pending')}
                     >
-                        Pending ({submissions.filter(s => s.status === 'pending').length})
+                        Pending ({submissions.filter(s => s.review_status !== 'approved').length})
                     </button>
                 </div>
 
@@ -353,65 +418,89 @@ export default function SubmissionsPage() {
                     {submissions
                         .filter(submission => {
                             if (filter === 'all') return true;
-                            return submission.status === filter;
+                            if (filter === 'evaluated') return submission.review_status === 'approved';
+                            if (filter === 'pending') return submission.review_status !== 'approved';
+                            return true;
                         })
-                        .map((submission) => (
-                            <div
-                                key={submission.script_id}
-                                style={styles.submissionCard}
-                                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'}
-                                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'}
-                            >
-                                <div style={styles.submissionInfo}>
-                                    <div style={styles.submissionTitle}>{submission.assignment_title}</div>
-                                    <div style={styles.className}>{submission.class_name}</div>
-                                    <div style={styles.submissionMeta}>
-                                        <span>Submitted: {new Date(submission.submitted_at).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                    <div style={{
-                                        ...styles.statusBadge,
-                                        ...(submission.status === 'evaluated' ? styles.statusEvaluated : styles.statusPending)
-                                    }}>
-                                        {submission.status === 'evaluated' ? 'Evaluated' : 'Pending Review'}
-                                    </div>
-                                    {submission.score !== null && (
-                                        <div style={styles.score}>{submission.score}%</div>
-                                    )}
-                                    
-                                    {/* Action buttons - only show if student can delete */}
-                                    {submission.can_delete && (
-                                        <div style={styles.actionButtons}>
-                                            <button
-                                                style={styles.deleteButton}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDelete(submission.script_id);
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = '#c0392b'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = '#e74c3c'}
-                                                title="Delete this submission"
-                                            >
-                                                Delete
-                                            </button>
-                                            <button
-                                                style={styles.resubmitButton}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleResubmit(submission);
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = '#2980b9'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = '#3498db'}
-                                                title="Delete and resubmit"
-                                            >
-                                                Resubmit
-                                            </button>
+                        .map((submission) => {
+                            // Determine display status and score
+                            let displayStatus = 'Pending Evaluation';
+                            let displayScore = null;
+                            let statusStyle = styles.statusPending;
+
+                            if (submission.review_status === 'approved') {
+                                displayStatus = 'Graded';
+                                displayScore = submission.final_score;
+                                statusStyle = styles.statusEvaluated;
+                            } else if (submission.review_status === 'pending') {
+                                displayStatus = 'Awaiting Review';
+                                statusStyle = styles.statusPending;
+                            } else if (submission.evaluation) {
+                                displayStatus = 'Under Review';
+                                statusStyle = styles.statusPending;
+                            }
+
+                            return (
+                                <div
+                                    key={submission.script_id}
+                                    style={styles.submissionCard}
+                                    onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'}
+                                >
+                                    <div style={styles.submissionInfo}>
+                                        <div style={styles.submissionTitle}>{submission.assignment_title}</div>
+                                        <div style={styles.className}>{submission.class_name}</div>
+                                        <div style={styles.submissionMeta}>
+                                            <span>Submitted: {new Date(submission.submitted_at).toLocaleDateString()}</span>
                                         </div>
-                                    )}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                        <div style={{
+                                            ...styles.statusBadge,
+                                            ...statusStyle
+                                        }}>
+                                            {displayStatus}
+                                        </div>
+
+                                        {/* Show score only if approved */}
+                                        {displayScore !== null && (
+                                            <div style={styles.score}>{Math.round(displayScore)}%</div>
+                                        )}
+
+                                        {/* View Details Button */}
+                                        <button
+                                            style={{
+                                                ...styles.resubmitButton,
+                                                background: '#16a085'
+                                            }}
+                                            onClick={() => navigate(`/class/${submission.class_id}/assignment/${submission.script_id}`)}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = '#138d75'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = '#16a085'}
+                                        >
+                                            View Details
+                                        </button>
+
+                                        {/* Action buttons - only show if student can delete */}
+                                        {submission.can_delete && (
+                                            <div style={styles.actionButtons}>
+                                                <button
+                                                    style={styles.deleteButton}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(submission.script_id);
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.background = '#c0392b'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.background = '#e74c3c'}
+                                                    title="Delete this submission"
+                                                >
+                                                    🗑️ Delete
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                 </div>
             </main>
         </div>

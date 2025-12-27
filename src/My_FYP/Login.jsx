@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000';
@@ -9,6 +9,27 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    const userDataString = localStorage.getItem('user') || localStorage.getItem('userData');
+    
+    if (token && userDataString) {
+      try {
+        const userData = JSON.parse(userDataString);
+        // Redirect based on role
+        if (userData.role === 'admin') {
+          navigate('/admin/dashboard', { replace: true });
+        } else {
+          navigate('/userpage', { replace: true });
+        }
+      } catch (e) {
+        // Invalid data, clear it
+        localStorage.clear();
+      }
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -60,14 +81,16 @@ export default function Login() {
 
       if (body?.user) {
         localStorage.setItem('user', JSON.stringify(body.user));
+        localStorage.setItem('userData', JSON.stringify(body.user));
       }
 
       const userRole = body.user?.role || 'student';
 
+      // Use replace to prevent back navigation to login
       if (userRole === 'admin') {
-        navigate('/admin/dashboard');
+        navigate('/admin/dashboard', { replace: true });
       } else {
-        navigate('/userpage');
+        navigate('/userpage', { replace: true });
       }
 
     } catch (err) {

@@ -2,508 +2,306 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 
-function AdminUserManagement() {
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000';
+
+export default function AdminUserManagement() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
-  const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [filter, setFilter] = useState(searchParams.get('filter') || 'all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchUsers();
-    fetchPendingUsers();
-  }, [filter]);
+  }, []);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:8000/admin/all-users');
+      const response = await axios.get(`${API_BASE}/admin/all-users`);
       if (response.data.success) {
-        let filteredUsers = response.data.users;
-
-        if (filter === 'student') {
-          filteredUsers = filteredUsers.filter(u => u.role === 'student');
-        } else if (filter === 'lecturer') {
-          filteredUsers = filteredUsers.filter(u => u.role === 'lecturer');
-        }
-
-        setUsers(filteredUsers);
+        setUsers(response.data.users);
       }
-      setLoading(false);
     } catch (err) {
       console.error('Error fetching users:', err);
-      setError('Failed to load users');
+    } finally {
       setLoading(false);
     }
   };
 
-  const fetchPendingUsers = async () => {
-    try {
-      const response = await axios.get('http://localhost:8000/admin/pending-users');
-      if (response.data.success) {
-        setPendingUsers(response.data.users);
-      }
-    } catch (err) {
-      console.error('Error fetching pending users:', err);
-    }
-  };
+  const handleApprove = async (userId) => {
+    if (!window.confirm('Approve this user?')) return;
 
-  const handleApproval = async (userId, approved) => {
     try {
-      const response = await axios.post('http://localhost:8000/admin/approve-user', {
-        user_id: userId,
-        approved: approved
-      }, {
-        params: { admin_id: 1 } // In production, get from auth token
+      const response = await axios.post(`${API_BASE}/approve-user/${userId}`, {}, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
       });
 
       if (response.data.success) {
-        setSuccessMessage(response.data.message);
+        setSuccessMessage('User approved successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
         fetchUsers();
-        fetchPendingUsers();
       }
     } catch (err) {
-      console.error('Error approving user:', err);
-      setError('Failed to process approval');
-      setTimeout(() => setError(''), 3000);
+      alert('Failed to approve user: ' + (err.response?.data?.detail || err.message));
     }
   };
 
-  const styles = {
-    container: {
-      minHeight: '100vh',
-      backgroundColor: '#f5f7fa',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    },
-    header: {
-      backgroundColor: '#fff',
-      padding: '20px 40px',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    headerTitle: {
-      fontSize: '24px',
-      fontWeight: 'bold',
-      color: '#333',
-      margin: 0,
-    },
-    headerButtons: {
-      display: 'flex',
-      gap: '15px',
-    },
-    button: {
-      padding: '10px 20px',
-      backgroundColor: '#667eea',
-      color: 'white',
-      border: 'none',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '600',
-      transition: 'background-color 0.2s',
-    },
-    outlineButton: {
-      padding: '10px 20px',
-      backgroundColor: 'transparent',
-      color: '#667eea',
-      border: '2px solid #667eea',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '600',
-      transition: 'all 0.2s',
-    },
-    content: {
-      padding: '40px',
-      maxWidth: '1400px',
-      margin: '0 auto',
-    },
-    pageTitle: {
-      fontSize: '32px',
-      fontWeight: 'bold',
-      color: '#333',
-      marginBottom: '30px',
-    },
-    filterBar: {
-      display: 'flex',
-      gap: '10px',
-      marginBottom: '30px',
-      flexWrap: 'wrap',
-    },
-    filterButton: {
-      padding: '10px 20px',
-      backgroundColor: 'white',
-      border: '2px solid #e0e0e0',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '600',
-      transition: 'all 0.2s',
-    },
-    filterButtonActive: {
-      backgroundColor: '#667eea',
-      color: 'white',
-      border: '2px solid #667eea',
-    },
-    section: {
-      backgroundColor: 'white',
-      padding: '30px',
-      borderRadius: '12px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      marginBottom: '30px',
-    },
-    sectionTitle: {
-      fontSize: '20px',
-      fontWeight: 'bold',
-      color: '#333',
-      marginBottom: '20px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-    },
-    table: {
-      width: '100%',
-      borderCollapse: 'collapse',
-    },
-    tableHeader: {
-      backgroundColor: '#f8f9fa',
-      textAlign: 'left',
-      padding: '15px',
-      fontSize: '14px',
-      fontWeight: '600',
-      color: '#666',
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px',
-      borderBottom: '2px solid #e0e0e0',
-    },
-    tableCell: {
-      padding: '15px',
-      borderBottom: '1px solid #f0f0f0',
-      fontSize: '14px',
-      color: '#333',
-    },
-    badge: {
-      padding: '5px 12px',
-      borderRadius: '12px',
-      fontSize: '12px',
-      fontWeight: '600',
-      textTransform: 'capitalize',
-      display: 'inline-block',
-    },
-    studentBadge: {
-      backgroundColor: '#e3f2fd',
-      color: '#1976d2',
-    },
-    lecturerBadge: {
-      backgroundColor: '#f3e5f5',
-      color: '#7b1fa2',
-    },
-    adminBadge: {
-      backgroundColor: '#fff3e0',
-      color: '#f57c00',
-    },
-    actionButtons: {
-      display: 'flex',
-      gap: '10px',
-    },
-    approveButton: {
-      padding: '6px 16px',
-      backgroundColor: '#4caf50',
-      color: 'white',
-      border: 'none',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontSize: '12px',
-      fontWeight: '600',
-      transition: 'background-color 0.2s',
-    },
-    rejectButton: {
-      padding: '6px 16px',
-      backgroundColor: '#f44336',
-      color: 'white',
-      border: 'none',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontSize: '12px',
-      fontWeight: '600',
-      transition: 'background-color 0.2s',
-    },
-    loading: {
-      textAlign: 'center',
-      padding: '60px',
-      fontSize: '18px',
-      color: '#666',
-    },
-    error: {
-      backgroundColor: '#fee',
-      color: '#c00',
-      padding: '15px 20px',
-      borderRadius: '8px',
-      marginBottom: '20px',
-    },
-    success: {
-      backgroundColor: '#e8f5e9',
-      color: '#2e7d32',
-      padding: '15px 20px',
-      borderRadius: '8px',
-      marginBottom: '20px',
-    },
-    emptyState: {
-      textAlign: 'center',
-      padding: '60px 20px',
-      color: '#999',
-    },
-    emptyStateIcon: {
-      fontSize: '48px',
-      marginBottom: '20px',
-    },
-  };
+  const handleDelete = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
 
-  const getBadgeStyle = (role) => {
-    switch (role) {
-      case 'student':
-        return { ...styles.badge, ...styles.studentBadge };
-      case 'lecturer':
-        return { ...styles.badge, ...styles.lecturerBadge };
-      case 'admin':
-        return { ...styles.badge, ...styles.adminBadge };
-      default:
-        return styles.badge;
+    try {
+      const response = await axios.delete(`${API_BASE}/delete-user/${userId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+      });
+
+      if (response.data.success) {
+        setSuccessMessage('User deleted successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+        fetchUsers();
+      }
+    } catch (err) {
+      alert('Failed to delete user: ' + (err.response?.data?.detail || err.message));
     }
   };
 
-  if (loading) {
-    return (
-      <div style={styles.container}>
-        <div style={styles.loading}>Loading users...</div>
+  const handleLogout = () => {
+    // Clear all session data
+    localStorage.clear();
+    sessionStorage.clear();
+    // Navigate to home page with replace to prevent going back to user management
+    navigate('/', { replace: true });
+  };
+
+  const filteredUsers = users.filter(user => {
+    const matchesRole = filter === 'all' || user.role === filter;
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || 
+                          (statusFilter === 'approved' && user.is_approved) ||
+                          (statusFilter === 'pending' && !user.is_approved);
+    return matchesRole && matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: users.length,
+    students: users.filter(u => u.role === 'student').length,
+    lecturers: users.filter(u => u.role === 'lecturer').length,
+    pending: users.filter(u => !u.is_approved).length
+  };
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #14b8a6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px', animation: 'spin 1s linear infinite' }}>👥</div>
+        <p style={{ fontSize: '18px' }}>Loading users...</p>
       </div>
-    );
-  }
-
-  const displayUsers = filter === 'pending' ? pendingUsers : users;
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.headerTitle}>🎓 User Management</h1>
-        <div style={styles.headerButtons}>
-          <button
-            style={styles.outlineButton}
-            onClick={() => navigate('/admin/dashboard')}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#667eea';
-              e.target.style.color = 'white';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'transparent';
-              e.target.style.color = '#667eea';
-            }}
-          >
-            Back to Dashboard
-          </button>
-          <button
-            style={styles.button}
-            onClick={() => navigate('/')}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = '#5568d3')}
-            onMouseLeave={(e) => (e.target.style.backgroundColor = '#667eea')}
-          >
-            Logout
-          </button>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #14b8a6 100%)' }}>
+      {/* Modern Navbar */}
+      <nav style={{ background: 'rgba(255, 255, 255, 0.98)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)', padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '32px' }}>👥</span>
+          <span style={{ fontSize: '24px', fontWeight: '700', background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>User Management</span>
         </div>
-      </header>
-
-      <div style={styles.content}>
-        {error && <div style={styles.error}>{error}</div>}
-        {successMessage && <div style={styles.success}>{successMessage}</div>}
-
-        <h2 style={styles.pageTitle}>User Management</h2>
-
-        {/* Filter Bar */}
-        <div style={styles.filterBar}>
-          {['all', 'pending', 'student', 'lecturer'].map((filterOption) => (
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {[
+            { icon: '📊', label: 'Dashboard', path: '/admin/dashboard' },
+            { icon: '📈', label: 'Analytics', path: '/admin/analytics' },
+            { icon: '⏳', label: 'Pending Approvals', path: '/admin/pending-users' }
+          ].map((item, i) => (
             <button
-              key={filterOption}
-              style={{
-                ...styles.filterButton,
-                ...(filter === filterOption ? styles.filterButtonActive : {}),
-              }}
-              onClick={() => setFilter(filterOption)}
-              onMouseEnter={(e) => {
-                if (filter !== filterOption) {
-                  e.target.style.borderColor = '#667eea';
-                  e.target.style.color = '#667eea';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (filter !== filterOption) {
-                  e.target.style.borderColor = '#e0e0e0';
-                  e.target.style.color = '#333';
-                }
-              }}
+              key={i}
+              onClick={() => navigate(item.path)}
+              style={{ padding: '10px 20px', border: 'none', borderRadius: '10px', background: 'transparent', color: '#64748b', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease', display: 'flex', alignItems: 'center', gap: '8px' }}
+              onMouseEnter={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#0ea5e9'; }}
+              onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#64748b'; }}
             >
-              {filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
-              {filterOption === 'pending' && pendingUsers.length > 0 && (
-                <span
-                  style={{
-                    marginLeft: '8px',
-                    backgroundColor: '#f44336',
-                    color: 'white',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    fontSize: '11px',
-                  }}
-                >
-                  {pendingUsers.length}
-                </span>
-              )}
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
             </button>
           ))}
         </div>
 
-        {/* Pending Users Section */}
-        {filter === 'pending' && (
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>
-              <span>⏳</span>
-              Pending Approvals ({pendingUsers.length})
-            </h3>
-            {pendingUsers.length > 0 ? (
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.tableHeader}>ID</th>
-                    <th style={styles.tableHeader}>Name</th>
-                    <th style={styles.tableHeader}>Email</th>
-                    <th style={styles.tableHeader}>Role</th>
-                    <th style={styles.tableHeader}>Joined At</th>
-                    <th style={styles.tableHeader}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingUsers.map((user) => (
-                    <tr key={user.user_id}>
-                      <td style={styles.tableCell}>{user.user_id}</td>
-                      <td style={styles.tableCell}>{user.name}</td>
-                      <td style={styles.tableCell}>{user.email}</td>
-                      <td style={styles.tableCell}>
-                        <span style={getBadgeStyle(user.role)}>{user.role}</span>
-                      </td>
-                      <td style={styles.tableCell}>
-                        {user.joined_at
-                          ? new Date(user.joined_at).toLocaleDateString()
-                          : 'N/A'}
-                      </td>
-                      <td style={styles.tableCell}>
-                        <div style={styles.actionButtons}>
-                          <button
-                            style={styles.approveButton}
-                            onClick={() => handleApproval(user.user_id, true)}
-                            onMouseEnter={(e) =>
-                              (e.target.style.backgroundColor = '#45a049')
-                            }
-                            onMouseLeave={(e) =>
-                              (e.target.style.backgroundColor = '#4caf50')
-                            }
-                          >
-                            ✓ Approve
-                          </button>
-                          <button
-                            style={styles.rejectButton}
-                            onClick={() => handleApproval(user.user_id, false)}
-                            onMouseEnter={(e) =>
-                              (e.target.style.backgroundColor = '#da190b')
-                            }
-                            onMouseLeave={(e) =>
-                              (e.target.style.backgroundColor = '#f44336')
-                            }
-                          >
-                            ✗ Reject
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div style={styles.emptyState}>
-                <div style={styles.emptyStateIcon}>✅</div>
-                <p>No pending approvals</p>
-              </div>
-            )}
+        <button
+          onClick={handleLogout}
+          style={{ padding: '10px 20px', border: 'none', borderRadius: '10px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease' }}
+          onMouseEnter={(e) => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.4)'; }}
+          onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+        >
+          Logout
+        </button>
+      </nav>
+
+      {/* Content */}
+      <div style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
+        {/* Success Message */}
+        {successMessage && (
+          <div style={{ background: '#d1fae5', border: '2px solid #10b981', borderRadius: '12px', padding: '16px', marginBottom: '24px', color: '#065f46', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '24px' }}>✅</span>
+            <span>{successMessage}</span>
           </div>
         )}
 
-        {/* All Users Section */}
-        {filter !== 'pending' && (
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>
-              <span>👥</span>
-              {filter === 'all'
-                ? 'All Approved Users'
-                : filter === 'student'
-                  ? 'Students'
-                  : 'Lecturers'}{' '}
-              ({displayUsers.length})
-            </h3>
-            {displayUsers.length > 0 ? (
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.tableHeader}>ID</th>
-                    <th style={styles.tableHeader}>Name</th>
-                    <th style={styles.tableHeader}>Email</th>
-                    <th style={styles.tableHeader}>Role</th>
-                    <th style={styles.tableHeader}>Joined At</th>
-                    <th style={styles.tableHeader}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayUsers.map((user) => (
-                    <tr key={user.user_id}>
-                      <td style={styles.tableCell}>{user.user_id}</td>
-                      <td style={styles.tableCell}>{user.name}</td>
-                      <td style={styles.tableCell}>{user.email}</td>
-                      <td style={styles.tableCell}>
-                        <span style={getBadgeStyle(user.role)}>{user.role}</span>
-                      </td>
-                      <td style={styles.tableCell}>
-                        {user.joined_at
-                          ? new Date(user.joined_at).toLocaleDateString()
-                          : 'N/A'}
-                      </td>
-                      <td style={styles.tableCell}>
-                        <span
-                          style={{
-                            ...styles.badge,
-                            backgroundColor: '#e8f5e9',
-                            color: '#2e7d32',
-                          }}
-                        >
-                          {user.status || 'active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div style={styles.emptyState}>
-                <div style={styles.emptyStateIcon}>📋</div>
-                <p>No users found</p>
+        {/* Stats Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+          {[
+            { label: 'Total Users', value: stats.total, icon: '👥', color: '#0ea5e9', bg: '#e0f2fe' },
+            { label: 'Students', value: stats.students, icon: '🎓', color: '#06b6d4', bg: '#cffafe' },
+            { label: 'Lecturers', value: stats.lecturers, icon: '👨‍🏫', color: '#14b8a6', bg: '#ccfbf1' },
+            { label: 'Pending', value: stats.pending, icon: '⏳', color: '#f59e0b', bg: '#fef3c7' }
+          ].map((stat, i) => (
+            <div
+              key={i}
+              style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', transition: 'all 0.3s ease', border: '2px solid transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = stat.color; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'transparent'; }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ padding: '10px', borderRadius: '10px', background: stat.bg, fontSize: '24px' }}>{stat.icon}</div>
+                <div>
+                  <div style={{ fontSize: '28px', fontWeight: '800', color: '#1e293b' }}>{stat.value}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>{stat.label}</div>
+                </div>
               </div>
-            )}
+            </div>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div style={{ background: 'white', borderRadius: '20px', padding: '24px', marginBottom: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#64748b', marginBottom: '8px' }}>Search Users</label>
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ width: '100%', padding: '12px', border: '2px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', outline: 'none', transition: 'border-color 0.3s' }}
+                onFocus={(e) => e.target.style.borderColor = '#0ea5e9'}
+                onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#64748b', marginBottom: '8px' }}>Filter by Role</label>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                style={{ width: '100%', padding: '12px', border: '2px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', outline: 'none', cursor: 'pointer', background: 'white' }}
+              >
+                <option value="all">All Roles</option>
+                <option value="student">Students</option>
+                <option value="lecturer">Lecturers</option>
+                <option value="admin">Admins</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#64748b', marginBottom: '8px' }}>Filter by Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ width: '100%', padding: '12px', border: '2px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', outline: 'none', cursor: 'pointer', background: 'white' }}
+              >
+                <option value="all">All Status</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Users Table */}
+        <div style={{ background: 'white', borderRadius: '20px', padding: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#1e293b', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>Users ({filteredUsers.length})</span>
+          </h2>
+
+          {filteredUsers.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <div style={{ fontSize: '64px', marginBottom: '16px' }}>🔍</div>
+              <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#1e293b', marginBottom: '8px' }}>No users found</h3>
+              <p style={{ fontSize: '14px', color: '#64748b' }}>Try adjusting your filters</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '12px', maxHeight: '600px', overflowY: 'auto', paddingRight: '8px' }}>
+              {filteredUsers.map((user, i) => (
+                <div
+                  key={i}
+                  style={{ padding: '20px', borderRadius: '12px', background: '#f8fafc', border: '2px solid #e2e8f0', transition: 'all 0.3s ease', display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: '20px' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#0ea5e9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '700', fontSize: '20px', flexShrink: 0 }}>
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>{user.name}</span>
+                        <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', background: user.role === 'student' ? '#e0f2fe' : user.role === 'lecturer' ? '#fef3c7' : '#ccfbf1', color: user.role === 'student' ? '#0ea5e9' : user.role === 'lecturer' ? '#f59e0b' : '#14b8a6' }}>
+                          {user.role}
+                        </span>
+                        {user.is_approved ? (
+                          <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: '#d1fae5', color: '#065f46' }}>
+                            ✓ APPROVED
+                          </span>
+                        ) : (
+                          <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: '#fef3c7', color: '#b45309' }}>
+                            ⏳ PENDING
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#64748b' }}>{user.email}</div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                        ID: {user.user_id} • Joined {new Date(user.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {!user.is_approved && (
+                      <button
+                        onClick={() => handleApprove(user.user_id)}
+                        style={{ padding: '10px 20px', border: 'none', borderRadius: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease', whiteSpace: 'nowrap' }}
+                        onMouseEnter={(e) => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 8px 20px rgba(16, 185, 129, 0.4)'; }}
+                        onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+                      >
+                        ✓ Approve
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(user.user_id)}
+                      style={{ padding: '10px 20px', border: 'none', borderRadius: '8px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease', whiteSpace: 'nowrap' }}
+                      onMouseEnter={(e) => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.4)'; }}
+                      onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      <style>{`
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; borderRadius: 10px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #0ea5e9, #06b6d4); borderRadius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #0284c7, #0891b2); }
+      `}</style>
     </div>
   );
 }
-
-export default AdminUserManagement;

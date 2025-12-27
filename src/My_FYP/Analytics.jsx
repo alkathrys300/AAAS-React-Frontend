@@ -31,39 +31,85 @@ export default function Analytics() {
         const classesRes = await fetch(`${API_BASE}/classes/enrolled`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         // Fetch submissions data
         const submissionsRes = await fetch(`${API_BASE}/student/submissions`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         let enrolledClasses = [];
         let submissions = [];
-        
+        let evaluated = 0;
+        let pending = 0;
+        let feedbackReceived = 0;
+        let totalScore = 0;
+        let scoredSubmissions = 0;
+
         if (classesRes.ok) {
           const classesData = await classesRes.json();
           enrolledClasses = classesData.classes || [];
         }
-        
+
         if (submissionsRes.ok) {
           const submissionsData = await submissionsRes.json();
           submissions = submissionsData.submissions || [];
+
+          // Fetch feedback for each submission to get accurate stats
+          for (const sub of submissions) {
+            try {
+              const feedbackRes = await fetch(`${API_BASE}/assignment/${sub.script_id}/feedback`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+
+              if (feedbackRes.ok) {
+                const feedbackData = await feedbackRes.json();
+
+                // Update submission with feedback data
+                sub.score = feedbackData.score;
+                sub.review_status = feedbackData.review_status;
+                sub.has_feedback = feedbackData.review_status === 'approved';
+
+                // Count evaluated (has evaluation, approved or not)
+                if (feedbackData.evaluation_id) {
+                  evaluated++;
+                }
+
+                // Count approved feedback
+                if (feedbackData.review_status === 'approved') {
+                  feedbackReceived++;
+                }
+
+                // Count pending review
+                if (feedbackData.review_status === 'pending' || !feedbackData.evaluation_id) {
+                  pending++;
+                }
+
+                // Calculate average score from approved feedback with scores
+                if (feedbackData.score !== null && feedbackData.score !== undefined) {
+                  totalScore += feedbackData.score;
+                  scoredSubmissions++;
+                }
+              } else if (feedbackRes.status === 403) {
+                // Pending review
+                pending++;
+                sub.review_status = 'pending';
+                sub.has_feedback = false;
+              }
+            } catch (err) {
+              console.error(`Error fetching feedback for submission ${sub.script_id}:`, err);
+              pending++;
+            }
+          }
         }
-        
-        // Calculate analytics from submissions
-        const evaluated = submissions.filter(s => s.status === 'evaluated').length;
-        const pending = submissions.filter(s => s.status === 'pending').length;
-        const feedbackReceived = submissions.filter(s => s.has_feedback).length;
-        
-        // Calculate average score from evaluated submissions with scores
-        const submissionsWithScores = submissions.filter(s => s.score !== null && s.score !== undefined);
-        const avgScore = submissionsWithScores.length > 0
-          ? Math.round(submissionsWithScores.reduce((sum, s) => sum + s.score, 0) / submissionsWithScores.length)
+
+        // Calculate average score
+        const avgScore = scoredSubmissions > 0
+          ? Math.round(totalScore / scoredSubmissions)
           : 0;
-        
+
         const analyticsData = {
           role: 'student',
-          enrolled_classes: enrolledClasses.length,
+          enrolled_classes: enrolledClasses.filter(c => c.enrollment_status === 'approved').length,
           total_submissions: submissions.length,
           evaluated: evaluated,
           pending_review: pending,
@@ -74,25 +120,88 @@ export default function Analytics() {
           submissions: submissions,
           recent_submissions: submissions.slice(-5).reverse() // Last 5 submissions
         };
-        
+
         setAnalytics(analyticsData);
       } else if (role === 'lecturer') {
         const classesRes = await fetch(`${API_BASE}/classes/my`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (classesRes.ok) {
           const classesData = await classesRes.json();
           const myClasses = classesData.classes || [];
-          
+
+          let totalAssignments = 0;
+          let evaluated = 0;
+          let pending = 0;
+          let feedbackGiven = 0;
+          let totalStudents = 0;
+
+          // Fetch submissions for each class
+          for (const cls of myClasses) {
+            totalStudents += cls.student_count || 0;
+
+            try {
+              const submissionsRes = await fetch(`${API_BASE}/class/${cls.class_id}/submissions`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+
+              if (submissionsRes.ok) {
+                const submissionsData = await submissionsRes.json();
+                const submissions = submissionsData.submissions || [];
+                totalAssignments += submissions.length;
+
+                // Check each submission's feedback status
+                for (const sub of submissions) {
+                  try {
+                    const feedbackRes = await fetch(`${API_BASE}/assignment/${sub.script_id}/feedback`, {
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (feedbackRes.ok) {
+                      const feedbackData = await feedbackRes.json();
+
+                      // Count evaluated (has evaluation)
+                      if (feedbackData.evaluation_id) {
+                        evaluated++;
+                      }
+
+                      // Count pending review
+                      if (feedbackData.review_status === 'pending' || !feedbackData.evaluation_id) {
+                        pending++;
+                      }
+
+                      // Count approved feedback
+                      if (feedbackData.review_status === 'approved') {
+                        feedbackGiven++;
+                      }
+                    } else {
+                      // No feedback yet - pending
+                      pending++;
+                    }
+                  } catch (err) {
+                    console.error(`Error fetching feedback for submission ${sub.script_id}:`, err);
+                    pending++;
+                  }
+                }
+              }
+            } catch (err) {
+              console.error(`Error fetching submissions for class ${cls.class_id}:`, err);
+            }
+          }
+
+          const avgClassSize = myClasses.length > 0 ? Math.round(totalStudents / myClasses.length) : 0;
+
           setAnalytics({
             role: 'lecturer',
             total_classes: myClasses.length,
-            total_assignments: 0,
-            graded: 0,
-            pending: 0,
-            feedback_given: 0,
-            pending_enrollments: 0,
+            total_assignments: totalAssignments,
+            graded: evaluated,
+            pending: pending,
+            feedback_given: feedbackGiven,
+            pending_enrollments: myClasses.reduce((sum, c) => sum + (c.pending_enrollments || 0), 0),
+            total_students: totalStudents,
+            avg_class_size: avgClassSize,
             classes: myClasses
           });
         } else {
@@ -108,9 +217,11 @@ export default function Analytics() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-    navigate('/');
+    // Clear all session data
+    localStorage.clear();
+    sessionStorage.clear();
+    // Navigate to home page with replace
+    navigate('/', { replace: true });
   };
 
   if (!user) return <div style={styles.loadingContainer}>Loading...</div>;
@@ -124,7 +235,7 @@ export default function Analytics() {
             <span style={styles.logoIcon}>🎓</span>
             <span style={styles.logoText}>AAAS</span>
           </div>
-          
+
           <div style={styles.navLinks}>
             <button
               onClick={() => navigate('/userpage')}
@@ -198,7 +309,7 @@ export default function Analytics() {
               <div style={styles.statCard}>
                 <div style={styles.statIcon}>📚</div>
                 <div style={styles.statNumber}>
-                  {analytics.role === 'lecturer' 
+                  {analytics.role === 'lecturer'
                     ? (analytics.total_classes || 0)
                     : (analytics.enrolled_classes || 0)}
                 </div>
@@ -275,7 +386,7 @@ export default function Analytics() {
                 <div style={styles.performanceCard}>
                   <h3 style={styles.cardTitle}>📈 Performance Overview</h3>
                   <p style={styles.cardText}>
-                    Your academic performance has been {analytics.avg_score > 75 ? 'excellent' : 'good'}! 
+                    Your academic performance has been {analytics.avg_score > 75 ? 'excellent' : 'good'}!
                     Keep up the great work.
                   </p>
                   {analytics.avg_score !== undefined && (
@@ -297,11 +408,14 @@ export default function Analytics() {
                         <div key={idx} style={styles.activityItem}>
                           <div style={styles.activityIcon}>📄</div>
                           <div style={styles.activityContent}>
-                            <div style={styles.activityTitle}>{sub.class_name}</div>
-                            <div style={styles.activityTime}>{sub.submitted_at}</div>
+                            <div style={styles.activityTitle}>{sub.class_name || 'Unknown Class'}</div>
+                            <div style={styles.activityTime}>
+                              {sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : 'N/A'}
+                            </div>
                           </div>
                           <div style={styles.activityScore}>
-                            {sub.score !== null ? `${sub.score}%` : 'Pending'}
+                            {sub.score !== null && sub.score !== undefined ? `${Math.round(sub.score)}%` :
+                              sub.review_status === 'pending' ? 'Pending' : 'Not Graded'}
                           </div>
                         </div>
                       ))}

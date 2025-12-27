@@ -37,32 +37,74 @@ export default function UserPage() {
             if (response.ok) {
                 const data = await response.json();
                 const submissions = data.submissions || [];
-                
+
+                // Fetch feedback for each submission to get real evaluation data
+                const submissionsWithFeedback = await Promise.all(
+                    submissions.map(async (sub) => {
+                        try {
+                            const feedbackRes = await fetch(
+                                `${API_BASE}/assignment/${sub.script_id}/feedback`,
+                                {
+                                    headers: {
+                                        'Authorization': `Bearer ${token}`
+                                    }
+                                }
+                            );
+
+                            if (feedbackRes.ok) {
+                                const feedbackData = await feedbackRes.json();
+                                return {
+                                    ...sub,
+                                    evaluation: feedbackData.evaluation,
+                                    review_status: feedbackData.review_status,
+                                    final_score: feedbackData.final_score
+                                };
+                            } else {
+                                return {
+                                    ...sub,
+                                    evaluation: null,
+                                    review_status: 'pending',
+                                    final_score: null
+                                };
+                            }
+                        } catch (err) {
+                            return {
+                                ...sub,
+                                evaluation: null,
+                                review_status: 'pending',
+                                final_score: null
+                            };
+                        }
+                    })
+                );
+
                 // Calculate stats from real data
-                const totalUploads = submissions.length;
-                const completedTasks = submissions.filter(s => s.status === 'evaluated').length;
-                
-                // Calculate average score
-                const submissionsWithScores = submissions.filter(s => s.score !== null && s.score !== undefined);
+                const totalUploads = submissionsWithFeedback.length;
+                const completedTasks = submissionsWithFeedback.filter(s => s.review_status === 'approved').length;
+
+                // Calculate average score from approved submissions only
+                const submissionsWithScores = submissionsWithFeedback.filter(
+                    s => s.review_status === 'approved' && s.final_score !== null && !isNaN(s.final_score)
+                );
                 const avgScore = submissionsWithScores.length > 0
-                    ? Math.round(submissionsWithScores.reduce((sum, s) => sum + s.score, 0) / submissionsWithScores.length)
+                    ? Math.round(submissionsWithScores.reduce((sum, s) => sum + s.final_score, 0) / submissionsWithScores.length)
                     : 0;
-                
+
                 setStats({
                     totalUploads,
                     avgScore,
                     completedTasks
                 });
-                
+
                 // Set recent activities
-                const recentActivities = submissions.slice(-3).reverse().map(sub => ({
+                const recentActivities = submissionsWithFeedback.slice(-3).reverse().map(sub => ({
                     id: sub.script_id,
                     title: sub.class_name,
                     action: 'Uploaded assignment',
                     time: new Date(sub.submitted_at).toLocaleDateString(),
                     type: 'upload'
                 }));
-                
+
                 setRecentActivities(recentActivities);
             }
         } catch (error) {
@@ -71,9 +113,11 @@ export default function UserPage() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-        navigate('/');
+        // Clear all session data
+        localStorage.clear();
+        sessionStorage.clear();
+        // Navigate to home page with replace
+        navigate('/', { replace: true });
     };
 
     if (loading) return (
@@ -92,7 +136,7 @@ export default function UserPage() {
                         <span style={styles.logoIcon}>🎓</span>
                         <span style={styles.logoText}>AAAS</span>
                     </div>
-                    
+
                     <div style={styles.navLinks}>
                         <button
                             onClick={() => navigate('/userpage')}
@@ -252,12 +296,16 @@ export default function UserPage() {
                                 <div style={styles.statLabel}>Uploads</div>
                             </div>
 
-                            <div style={styles.statDivider}></div>
+                            {stats.avgScore > 0 && (
+                                <>
+                                    <div style={styles.statDivider}></div>
 
-                            <div style={styles.statItem}>
-                                <div style={styles.statNumber}>{stats.avgScore || 0}%</div>
-                                <div style={styles.statLabel}>Avg Score</div>
-                            </div>
+                                    <div style={styles.statItem}>
+                                        <div style={styles.statNumber}>{stats.avgScore}%</div>
+                                        <div style={styles.statLabel}>Avg Score</div>
+                                    </div>
+                                </>
+                            )}
 
                             <div style={styles.statDivider}></div>
 

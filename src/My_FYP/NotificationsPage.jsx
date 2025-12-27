@@ -74,9 +74,11 @@ export default function NotificationsPage() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-        navigate('/login');
+        // Clear all session data
+        localStorage.clear();
+        sessionStorage.clear();
+        // Navigate to home page with replace
+        navigate('/', { replace: true });
     };
 
     const getNotificationIcon = (type) => {
