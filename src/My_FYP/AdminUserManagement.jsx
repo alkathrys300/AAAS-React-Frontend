@@ -36,9 +36,7 @@ export default function AdminUserManagement() {
     if (!window.confirm('Approve this user?')) return;
 
     try {
-      const response = await axios.post(`${API_BASE}/approve-user/${userId}`, {}, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-      });
+      const response = await axios.post(`${API_BASE}/admin/approve-user/${userId}`, {});
 
       if (response.data.success) {
         setSuccessMessage('User approved successfully!');
@@ -54,9 +52,11 @@ export default function AdminUserManagement() {
     if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
 
     try {
-      const response = await axios.delete(`${API_BASE}/delete-user/${userId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-      });
+      console.log('Deleting user with ID:', userId);
+      console.log('API endpoint:', `${API_BASE}/admin/delete-user/${userId}`);
+      
+      const response = await axios.delete(`${API_BASE}/admin/delete-user/${userId}`);
+      console.log('Delete response:', response.data);
 
       if (response.data.success) {
         setSuccessMessage('User deleted successfully!');
@@ -64,7 +64,28 @@ export default function AdminUserManagement() {
         fetchUsers();
       }
     } catch (err) {
+      console.error('Delete error:', err);
+      console.error('Error response:', err.response);
       alert('Failed to delete user: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleSuspend = async (userId) => {
+    if (!window.confirm('Are you sure you want to suspend this user?')) return;
+
+    try {
+      console.log('Suspending user with ID:', userId);
+      const response = await axios.post(`${API_BASE}/admin/suspend-user/${userId}`, {});
+      console.log('Suspend response:', response.data);
+
+      if (response.data.success) {
+        setSuccessMessage('User suspended successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+        fetchUsers();
+      }
+    } catch (err) {
+      console.error('Suspend error:', err);
+      alert('Failed to suspend user: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -278,6 +299,16 @@ export default function AdminUserManagement() {
                         onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
                       >
                         ✓ Approve
+                      </button>
+                    )}
+                    {user.status !== 'suspended' && (
+                      <button
+                        onClick={() => handleSuspend(user.user_id)}
+                        style={{ padding: '10px 20px', border: 'none', borderRadius: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.3s ease', whiteSpace: 'nowrap' }}
+                        onMouseEnter={(e) => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 8px 20px rgba(245, 158, 11, 0.4)'; }}
+                        onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none'; }}
+                      >
+                        ⚠️ Suspend
                       </button>
                     )}
                     <button

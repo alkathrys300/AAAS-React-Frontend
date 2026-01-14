@@ -21,6 +21,7 @@ export default function AssignmentDetailPage() {
     const [editedComment, setEditedComment] = useState('');
     const [savingReview, setSavingReview] = useState(false);
     const [approving, setApproving] = useState(false);
+    const [reEvaluating, setReEvaluating] = useState(false);
 
     const scriptId = submissionId || assignmentId;
     const isViewMode = true; // Always view mode - we're viewing an existing submission
@@ -141,6 +142,38 @@ export default function AssignmentDetailPage() {
             alert('Error approving evaluation');
         } finally {
             setApproving(false);
+        }
+    };
+
+    const handleReEvaluate = async () => {
+        const confirmed = window.confirm('Are you sure you want to re-evaluate this submission? This will clear the cached analysis and generate a fresh evaluation.');
+        if (!confirmed) return;
+
+        setReEvaluating(true);
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_BASE}/assignment/${scriptId}/re-evaluate`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                alert('✅ ' + (data.msg || 'Re-evaluation triggered successfully!') + '\n\nRefreshing feedback...');
+                // Refresh feedback to get new evaluation
+                await fetchFeedback(token);
+            } else {
+                const errorData = await response.json();
+                alert(errorData.detail || 'Failed to re-evaluate submission');
+            }
+        } catch (err) {
+            console.error('Error re-evaluating:', err);
+            alert('Error re-evaluating submission');
+        } finally {
+            setReEvaluating(false);
         }
     };
 
@@ -557,6 +590,68 @@ export default function AssignmentDetailPage() {
                                                 </div>
                                             </div>
                                         </div>
+                                        {/* Similar Students List - LECTURER ONLY */}
+                                        {isLecturer && feedback.similar_to_students && feedback.similar_to_students.length > 0 && (
+                                            <div style={{ 
+                                                marginTop: '16px', 
+                                                padding: '16px', 
+                                                background: feedback.plagiarism_risk === 'VERY_HIGH' || feedback.plagiarism_risk === 'HIGH' ? 'rgba(254, 226, 226, 0.5)' :
+                                                    feedback.plagiarism_risk === 'MEDIUM' ? 'rgba(254, 243, 199, 0.5)' : 'rgba(240, 253, 244, 0.5)',
+                                                borderRadius: '8px', 
+                                                border: `2px solid ${feedback.plagiarism_risk === 'VERY_HIGH' || feedback.plagiarism_risk === 'HIGH' ? '#fca5a5' :
+                                                    feedback.plagiarism_risk === 'MEDIUM' ? '#fde047' : '#86efac'}`
+                                            }}>
+                                                <h4 style={{
+                                                    fontSize: '1.1rem', 
+                                                    fontWeight: '700', 
+                                                    marginBottom: '12px',
+                                                    color: feedback.plagiarism_risk === 'VERY_HIGH' || feedback.plagiarism_risk === 'HIGH' ? '#991b1b' :
+                                                        feedback.plagiarism_risk === 'MEDIUM' ? '#854d0e' : '#166534',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px'
+                                                }}>
+                                                    <span>👥</span> Similar Submissions Detected ({feedback.similar_to_students.length})
+                                                </h4>
+                                                <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '12px', fontStyle: 'italic' }}>
+                                                    🔒 This information is only visible to lecturers
+                                                </div>
+                                                {feedback.similar_to_students.map((student, idx) => (
+                                                    <div key={idx} style={{
+                                                        padding: '14px',
+                                                        background: 'white',
+                                                        borderRadius: '8px',
+                                                        marginBottom: idx < feedback.similar_to_students.length - 1 ? '10px' : '0',
+                                                        border: '1px solid rgba(0,0,0,0.1)',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                                    }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: '700', color: '#1e293b', marginBottom: '6px', fontSize: '1rem' }}>
+                                                                {student.student_name}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                                                                ID: {student.student_id}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <div style={{
+                                                                fontSize: '2rem', 
+                                                                fontWeight: '700',
+                                                                color: student.similarity_percentage >= 70 ? '#dc2626' :
+                                                                    student.similarity_percentage >= 50 ? '#f59e0b' : '#059669'
+                                                            }}>
+                                                                {student.similarity_percentage}%
+                                                            </div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>similarity</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         {feedback.plagiarism_method && (
                                             <div style={{
                                                 fontSize: '0.85rem',
@@ -574,50 +669,6 @@ export default function AssignmentDetailPage() {
                                                     {feedback.plagiarism_risk === 'MEDIUM' && '⚡ Moderate similarity detected. Some content may overlap with other submissions.'}
                                                     {(feedback.plagiarism_risk === 'LOW' || feedback.plagiarism_risk === 'MINIMAL') && '✅ Low similarity detected. Content appears largely original.'}
                                                 </div>
-                                            </div>
-                                        )}
-
-                                        {/* Similar Students List */}
-                                        {feedback.similar_to_students && feedback.similar_to_students.length > 0 && isLecturer && (
-                                            <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(255,255,255,0.7)', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)' }}>
-                                                <h4 style={{
-                                                    fontSize: '1rem', fontWeight: '700', marginBottom: '12px',
-                                                    color: feedback.plagiarism_risk === 'VERY_HIGH' || feedback.plagiarism_risk === 'HIGH' ? '#991b1b' :
-                                                        feedback.plagiarism_risk === 'MEDIUM' ? '#854d0e' : '#166534'
-                                                }}>
-                                                    👥 Similar Submissions Detected:
-                                                </h4>
-                                                {feedback.similar_to_students.map((student, idx) => (
-                                                    <div key={idx} style={{
-                                                        padding: '12px',
-                                                        background: 'white',
-                                                        borderRadius: '6px',
-                                                        marginBottom: '8px',
-                                                        border: '1px solid rgba(0,0,0,0.1)',
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        alignItems: 'center'
-                                                    }}>
-                                                        <div>
-                                                            <div style={{ fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>
-                                                                {student.student_name}
-                                                            </div>
-                                                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                                                                Student ID: {student.student_id}
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ textAlign: 'right' }}>
-                                                            <div style={{
-                                                                fontSize: '1.5rem', fontWeight: '700',
-                                                                color: student.similarity_percentage >= 70 ? '#dc2626' :
-                                                                    student.similarity_percentage >= 50 ? '#f59e0b' : '#059669'
-                                                            }}>
-                                                                {student.similarity_percentage}%
-                                                            </div>
-                                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>similarity</div>
-                                                        </div>
-                                                    </div>
-                                                ))}
                                             </div>
                                         )}
                                     </div>
@@ -777,6 +828,13 @@ export default function AssignmentDetailPage() {
                                                         style={{ flex: 1, padding: '12px 24px', background: 'white', color: '#0891b2', border: '2px solid white', borderRadius: '8px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer' }}
                                                     >
                                                         ✏️ Edit Score & Comment
+                                                    </button>
+                                                    <button
+                                                        onClick={handleReEvaluate}
+                                                        disabled={reEvaluating}
+                                                        style={{ flex: 1, padding: '12px 24px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', opacity: reEvaluating ? 0.6 : 1 }}
+                                                    >
+                                                        {reEvaluating ? '⏳ Re-evaluating...' : '🔄 Re-evaluate'}
                                                     </button>
                                                     {feedback.review_status === 'pending' && feedback.evaluation_id && (
                                                         <button
