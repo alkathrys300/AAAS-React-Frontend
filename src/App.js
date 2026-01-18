@@ -17,6 +17,12 @@ import Contact from './My_FYP/Contact';
 import SubmissionsPage from './My_FYP/SubmissionsPage';
 import NotificationsPage from './My_FYP/NotificationsPage';
 import UploadAssignmentPage from './My_FYP/UploadAssignmentPage';
+import HelpCenter from './My_FYP/HelpCenter';
+import Documentation from './My_FYP/Documentation';
+import Tutorials from './My_FYP/Tutorials';
+import PrivacyPolicy from './My_FYP/PrivacyPolicy';
+import TermsOfService from './My_FYP/TermsOfService';
+import ApiGuide from './My_FYP/ApiGuide';
 
 
 
@@ -37,6 +43,12 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/submissions" element={<SubmissionsPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/help-center" element={<HelpCenter />} />
+        <Route path="/documentation" element={<Documentation />} />
+        <Route path="/tutorials" element={<Tutorials />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/api-guide" element={<ApiGuide />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/users" element={<AdminUserManagement />} />
         <Route path="/admin/user-management" element={<UserManagement />} />

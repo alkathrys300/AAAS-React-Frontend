@@ -29,37 +29,68 @@ export default function UserPage() {
 
     const fetchUserStats = async (token, userId) => {
         try {
-            // Fetch submissions data
-            const response = await fetch(`${API_BASE}/student/submissions`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // Check user role
+            const userData = localStorage.getItem('user');
+            const user = JSON.parse(userData);
 
-            if (response.ok) {
-                const data = await response.json();
-                const submissions = data.submissions || [];
+            if (user.role === 'lecturer') {
+                // Fetch lecturer stats
+                const response = await fetch(`${API_BASE}/lecturer/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
 
-                // Fetch feedback for each submission to get real evaluation data
-                const submissionsWithFeedback = await Promise.all(
-                    submissions.map(async (sub) => {
-                        try {
-                            const feedbackRes = await fetch(
-                                `${API_BASE}/assignment/${sub.script_id}/feedback`,
-                                {
-                                    headers: {
-                                        'Authorization': `Bearer ${token}`
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    setStats({
+                        totalUploads: data.stats.total_classes || 0,
+                        avgScore: 0, // Not applicable for lecturers
+                        completedTasks: data.stats.completed_reviews || 0,
+                        pendingReviews: data.stats.pending_reviews || 0
+                    });
+
+                    setRecentActivities(data.recent_activities || []);
+                }
+            } else {
+                // Fetch student stats (existing logic)
+                const response = await fetch(`${API_BASE}/student/submissions`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const submissions = data.submissions || [];
+
+                    // Fetch feedback for each submission to get real evaluation data
+                    const submissionsWithFeedback = await Promise.all(
+                        submissions.map(async (sub) => {
+                            try {
+                                const feedbackRes = await fetch(
+                                    `${API_BASE}/assignment/${sub.script_id}/feedback`,
+                                    {
+                                        headers: {
+                                            'Authorization': `Bearer ${token}`
+                                        }
                                     }
-                                }
-                            );
+                                );
 
-                            if (feedbackRes.ok) {
-                                const feedbackData = await feedbackRes.json();
-                                return {
-                                    ...sub,
-                                    evaluation: feedbackData.evaluation,
-                                    review_status: feedbackData.review_status,
-                                    final_score: feedbackData.final_score
-                                };
-                            } else {
+                                if (feedbackRes.ok) {
+                                    const feedbackData = await feedbackRes.json();
+                                    return {
+                                        ...sub,
+                                        evaluation: feedbackData.evaluation,
+                                        review_status: feedbackData.review_status,
+                                        final_score: feedbackData.final_score
+                                    };
+                                } else {
+                                    return {
+                                        ...sub,
+                                        evaluation: null,
+                                        review_status: 'pending',
+                                        final_score: null
+                                    };
+                                }
+                            } catch (err) {
                                 return {
                                     ...sub,
                                     evaluation: null,
@@ -67,45 +98,38 @@ export default function UserPage() {
                                     final_score: null
                                 };
                             }
-                        } catch (err) {
-                            return {
-                                ...sub,
-                                evaluation: null,
-                                review_status: 'pending',
-                                final_score: null
-                            };
-                        }
-                    })
-                );
+                        })
+                    );
 
-                // Calculate stats from real data
-                const totalUploads = submissionsWithFeedback.length;
-                const completedTasks = submissionsWithFeedback.filter(s => s.review_status === 'approved').length;
+                    // Calculate stats from real data
+                    const totalUploads = submissionsWithFeedback.length;
+                    const completedTasks = submissionsWithFeedback.filter(s => s.review_status === 'approved').length;
 
-                // Calculate average score from approved submissions only
-                const submissionsWithScores = submissionsWithFeedback.filter(
-                    s => s.review_status === 'approved' && s.final_score !== null && !isNaN(s.final_score)
-                );
-                const avgScore = submissionsWithScores.length > 0
-                    ? Math.round(submissionsWithScores.reduce((sum, s) => sum + s.final_score, 0) / submissionsWithScores.length)
-                    : 0;
+                    // Calculate average score from approved submissions only
+                    const submissionsWithScores = submissionsWithFeedback.filter(
+                        s => s.review_status === 'approved' && s.final_score !== null && !isNaN(s.final_score)
+                    );
+                    const avgScore = submissionsWithScores.length > 0
+                        ? Math.round(submissionsWithScores.reduce((sum, s) => sum + s.final_score, 0) / submissionsWithScores.length)
+                        : 0;
 
-                setStats({
-                    totalUploads,
-                    avgScore,
-                    completedTasks
-                });
+                    setStats({
+                        totalUploads,
+                        avgScore,
+                        completedTasks
+                    });
 
-                // Set recent activities
-                const recentActivities = submissionsWithFeedback.slice(-3).reverse().map(sub => ({
-                    id: sub.script_id,
-                    title: sub.class_name,
-                    action: 'Uploaded assignment',
-                    time: new Date(sub.submitted_at).toLocaleDateString(),
-                    type: 'upload'
-                }));
+                    // Set recent activities
+                    const recentActivities = submissionsWithFeedback.slice(-3).reverse().map(sub => ({
+                        id: sub.script_id,
+                        title: sub.class_name,
+                        action: 'Uploaded assignment',
+                        time: new Date(sub.submitted_at).toLocaleDateString(),
+                        type: 'upload'
+                    }));
 
-                setRecentActivities(recentActivities);
+                    setRecentActivities(recentActivities);
+                }
             }
         } catch (error) {
             console.log('Could not fetch stats:', error);
@@ -291,28 +315,53 @@ export default function UserPage() {
                                 <h3 style={styles.statsTitle}>Your Progress</h3>
                             </div>
 
-                            <div style={styles.statItem}>
-                                <div style={styles.statNumber}>{stats.totalUploads || 0}</div>
-                                <div style={styles.statLabel}>Uploads</div>
-                            </div>
-
-                            {stats.avgScore > 0 && (
+                            {user.role === 'student' ? (
                                 <>
+                                    <div style={styles.statItem}>
+                                        <div style={styles.statNumber}>{stats.totalUploads || 0}</div>
+                                        <div style={styles.statLabel}>Uploads</div>
+                                    </div>
+
+                                    {stats.avgScore > 0 && (
+                                        <>
+                                            <div style={styles.statDivider}></div>
+
+                                            <div style={styles.statItem}>
+                                                <div style={styles.statNumber}>{stats.avgScore}%</div>
+                                                <div style={styles.statLabel}>Avg Score</div>
+                                            </div>
+                                        </>
+                                    )}
+
                                     <div style={styles.statDivider}></div>
 
                                     <div style={styles.statItem}>
-                                        <div style={styles.statNumber}>{stats.avgScore}%</div>
-                                        <div style={styles.statLabel}>Avg Score</div>
+                                        <div style={styles.statNumber}>{stats.completedTasks || 0}</div>
+                                        <div style={styles.statLabel}>Completed</div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={styles.statItem}>
+                                        <div style={styles.statNumber}>{stats.totalUploads || 0}</div>
+                                        <div style={styles.statLabel}>Classes</div>
+                                    </div>
+
+                                    <div style={styles.statDivider}></div>
+
+                                    <div style={styles.statItem}>
+                                        <div style={styles.statNumber}>{stats.pendingReviews || 0}</div>
+                                        <div style={styles.statLabel}>Pending Reviews</div>
+                                    </div>
+
+                                    <div style={styles.statDivider}></div>
+
+                                    <div style={styles.statItem}>
+                                        <div style={styles.statNumber}>{stats.completedTasks || 0}</div>
+                                        <div style={styles.statLabel}>Reviewed</div>
                                     </div>
                                 </>
                             )}
-
-                            <div style={styles.statDivider}></div>
-
-                            <div style={styles.statItem}>
-                                <div style={styles.statNumber}>{stats.completedTasks || 0}</div>
-                                <div style={styles.statLabel}>Completed</div>
-                            </div>
                         </div>
 
                         {/* Quick Links Card */}

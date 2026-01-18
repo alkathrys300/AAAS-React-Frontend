@@ -108,6 +108,7 @@ export default function Home() {
               </button>
               
               <button
+                onClick={() => window.open('https://youtu.be/97pGA_a_t90', '_blank')}
                 style={styles.secondaryCTA}
                 onMouseEnter={(e) => {
                   e.target.style.backgroundColor = '#f8fafc';
@@ -377,32 +378,32 @@ export default function Home() {
                 Automated Assessment System
               </p>
               <div style={styles.socialLinks}>
-                <a href="#" style={styles.socialIcon}>𝕏</a>
-                <a href="#" style={styles.socialIcon}>📘</a>
-                <a href="#" style={styles.socialIcon}>🔗</a>
-                <a href="https://fk.umpsa.edu.my/" target="_blank" rel="noopener noreferrer" style={styles.socialIcon}>▶</a>
+                <a href="https://twitter.com/fkumpsa" target="_blank" rel="noopener noreferrer" style={styles.socialIcon} title="Twitter/X">𝕏</a>
+                <a href="https://www.facebook.com/fkumpsa" target="_blank" rel="noopener noreferrer" style={styles.socialIcon} title="Facebook">📘</a>
+                <a href="https://www.linkedin.com/school/fkumpsa" target="_blank" rel="noopener noreferrer" style={styles.socialIcon} title="LinkedIn">🔗</a>
+                <a href="https://youtu.be/97pGA_a_t90" target="_blank" rel="noopener noreferrer" style={styles.socialIcon} title="YouTube Tutorial">▶</a>
               </div>
             </div>
 
             <div style={styles.footerColumn}>
               <h4 style={styles.footerColumnTitle}>Support</h4>
-              <a href="#" style={styles.footerLink}>Help Center</a>
-              <a href="#" style={styles.footerLink}>Contact Support</a>
-              <a href="#" style={styles.footerLink}>Documentation</a>
+              <a onClick={() => navigate('/help-center')} style={styles.footerLink}>Help Center</a>
+              <a onClick={() => navigate('/contact')} style={styles.footerLink}>Contact Support</a>
+              <a onClick={() => navigate('/documentation')} style={styles.footerLink}>Documentation</a>
             </div>
 
             <div style={styles.footerColumn}>
               <h4 style={styles.footerColumnTitle}>Resources</h4>
-              <a href="#" style={styles.footerLink}>Tutorials</a>
-              <a href="#" style={styles.footerLink}>API Guide</a>
-              <a href="#" style={styles.footerLink}>Best Practices</a>
+              <a onClick={() => navigate('/tutorials')} style={styles.footerLink}>Tutorials</a>
+              <a onClick={() => navigate('/api-guide')} style={styles.footerLink}>API Guide</a>
+              <a href="https://fk.umpsa.edu.my/index.php/best-practices" target="_blank" rel="noopener noreferrer" style={styles.footerLink}>Best Practices</a>
             </div>
 
             <div style={styles.footerColumn}>
               <h4 style={styles.footerColumnTitle}>Legal</h4>
-              <a href="#" style={styles.footerLink}>Privacy Policy</a>
-              <a href="#" style={styles.footerLink}>Terms of Service</a>
-              <a href="#" style={styles.footerLink}>Cookie Policy</a>
+              <a onClick={() => navigate('/privacy-policy')} style={styles.footerLink}>Privacy Policy</a>
+              <a onClick={() => navigate('/terms-of-service')} style={styles.footerLink}>Terms of Service</a>
+              <a href="https://fk.umpsa.edu.my/index.php/cookie-policy" target="_blank" rel="noopener noreferrer" style={styles.footerLink}>Cookie Policy</a>
             </div>
           </div>
 
